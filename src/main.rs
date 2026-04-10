@@ -1,11 +1,17 @@
-use std::{env, fs::File, io::Read, path, process::ExitCode};
+use std::{env, fs::{self, File}, io::Read, path, process::ExitCode};
+
+use crate::{cpu::Cpu, rom::Rom};
+
+mod cpu;
+mod rom;
+mod memory;
+mod mbc;
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
-    let file = match args.get(1) {
+    let filepath = match args.get(1) {
         Some(s) => {
-            let filepath = path::Path::new(s);
-            File::open(filepath)                    
+            path::Path::new(s)
         },
         None => {
             eprintln!("missing path argument");
@@ -13,19 +19,15 @@ fn main() -> ExitCode {
         },
     };
 
-    let mut file = match file {
-        Ok(file) => file,
-        Err(err) => {
-            eprintln!("unable to open file: {}", err);
-            return ExitCode::FAILURE
-        },
-    };
+    let rom = Rom::new(fs::read(filepath).unwrap());
 
-    let mut next_2_bytes: [u8; 2] = [0; 2];
-    file.read_exact(&mut next_2_bytes).unwrap();
+    println!("Loaded ROM with title: {}", rom.title());
+    println!("ROM size: {}KiB", rom.rom_size());
+    println!("SRAM size: {}KiB", rom.ram_size());
+    println!("MBC type: {:?}", rom.cartridge_type());
 
-    println!("{:#X}", next_2_bytes.get(0).unwrap());
-    println!("{:#X}", next_2_bytes.get(1).unwrap());
+    let mut cpu = Cpu::new(rom);
+    cpu.run();
 
     ExitCode::SUCCESS
 }
