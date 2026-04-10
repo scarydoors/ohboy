@@ -1,82 +1,6 @@
-use bitflags::{Flags, bitflags};
+use bitflags::bitflags;
 
-use crate::{mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
-
-mod registers;
-
-pub struct Cpu {
-    registers: Registers,
-    rom: rom::Rom,
-    memory: memory::Memory,
-}
-
-impl Cpu {
-    pub fn new(rom: rom::Rom) -> Self {
-        let mbc = mbc::create_mbc(rom.clone());
-        Self {
-            memory: Memory::new(mbc),
-            registers: Registers::new(),
-            rom: rom,
-        }
-    }
-
-    pub fn run(&mut self) {
-        loop {
-            println!("reading opcode at {:x}", self.registers.pc());
-            let opcode = self.read_at_pc_then_inc();
-            match opcode {
-                0x00 => { // nop
-
-                },
-                0xC3 => {
-                    let addr_lsb = self.read_at_pc_then_inc() as u16;
-                    let addr_msb = self.read_at_pc_then_inc() as u16;
-
-                    let addr = (addr_msb << 8) | addr_lsb;
-                    println!("jump addr: {:x}", addr);
-                    self.registers.set_pc(addr);
-                },
-                op if (op & 0b1010_1000) == (0b1010_1000) => {
-                    println!("{}", (op & 0b111));
-                    let operand = self.registers.get_8_bit((opcode & 0b111) as usize).unwrap();
-                    let a = self.registers.a();
-
-                    let result = a ^ operand;
-                    self.registers.set_a(result);
-
-                    let mut flags = CpuFlagRegister::empty();
-                    if result == 0 {
-                        flags |= CpuFlagRegister::ZERO_FLAG;
-                    }
-                    self.registers.set_f(flags);
-                },
-                op if (op & 0b0000_0001) == (0b0000_0001) => {
-                    println!("{}", (op & 0b111));
-                    let operand = self.registers.get_8_bit(((opcode >> 4) & 0b11) as usize).unwrap();
-                    let val_lsb = self.read_at_pc_then_inc() as u16;
-                    let val_msb = self.read_at_pc_then_inc() as u16;
-
-                    let val = (val_msb << 8) | val_lsb;
-                    
-                    let 
-
-                },
-                _ => {
-                    unimplemented!("unknown opcode {:x}!", opcode)
-                }
-            }
-        }
-    }
-
-    pub fn read_at_pc_then_inc(&mut self) -> u8 {
-        let pc = self.registers.pc();
-        self.registers.set_pc(pc + 1);
-
-        self.memory.read_memory_u8(pc as usize)
-    }
-}
-
-struct Registers {
+pub struct Registers {
     pc: u16,
     sp: u16,
 
@@ -229,10 +153,6 @@ impl Registers {
         }
     }
 
-    fn get_16_bit(&self) -> Option<u16> {
-    }
-
-
     fn set(&mut self) {
     }
 }
@@ -243,5 +163,107 @@ bitflags! {
         const SUB_FLAG = 1 << 6;
         const HALF_CARRY_FLAG = 1 << 5;
         const CARRY_FLAG = 1 << 4;
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Register<T: Copy>(T); 
+
+impl<T: Copy> Register<T> {
+    pub fn new(value: T) -> Self {
+        Register(value)
+    }
+
+    pub fn get(&self) -> T {
+        self.0
+    }
+
+    pub fn set(&mut self, value: T) {
+        self.0 = value
+    }
+
+    pub fn update<F: Fn(T) -> T>(&mut self, f: F) {
+        self.set(f(self.get()))
+    }
+}
+
+pub trait RegisterPairRead {
+    fn high(&self) -> u8;
+    fn low(&self) -> u8;
+
+    fn get(&self) -> u16 {
+        ((self.high() as u16) << 8) | self.low() as u16
+    }
+}
+
+pub trait RegisterPairWrite<'a>: RegisterPairRead {
+    fn set_high(&mut self, value: u8);
+    fn set_low(&mut self, value: u8);
+
+    fn set(&mut self, value: u16) {
+        self.set_high((value >> 8) as u8);
+        self.set_low(value as u8);
+    }
+
+    fn update<F: Fn(u16) -> u16>(&mut self, f: F) {
+        self.set(f(self.get()));
+    }
+}
+
+pub struct RegisterPair {
+    high: Register<u8>,
+    low: Register<u8>
+}
+
+impl RegisterPair {
+    pub fn new(high: Register<u8>, low: Register<u8>) -> Self {
+        Self {
+            high,
+            low,
+        }
+    }
+}
+
+impl RegisterPairRead for RegisterPair {
+    fn high(&self) -> u8 {
+        self.high.get()
+    }
+
+    fn low(&self) -> u8 {
+        self.low.get()
+    }
+}
+
+pub struct RegisterPairMut<'a> {
+    high: &'a mut Register<u8>,
+    low: &'a mut Register<u8>,
+}
+
+impl<'a> RegisterPairMut<'a> {
+    pub fn new(high: &'a mut Register<u8>, low: &'a mut Register<u8>) -> Self {
+        Self {
+            high,
+            low
+        }
+    }
+}
+
+impl RegisterPairRead for RegisterPairMut<'_> {
+    fn high(&self) -> u8 {
+        self.high.get()
+    }
+
+    fn low(&self) -> u8 {
+        self.low.get()
+    }
+}
+
+impl RegisterPairWrite<'_> for RegisterPairMut<'_> {
+    fn set_high(&mut self, value: u8) {
+        self.high.set(value);
+    }
+
+    fn set_low(&mut self, value: u8) {
+        self.low.set(value);
     }
 }
