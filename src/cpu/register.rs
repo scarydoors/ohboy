@@ -94,7 +94,7 @@ impl Registers {
         }
     }
 
-    pub fn get_word_register(&self, r: WordRegisterName) -> WordRegisterRef {
+    pub fn get_word_register(&self, r: WordRegisterName) -> WordRegisterRef<'_> {
         use WordRegisterName::*;
         match r {
             BC => self.bc(),
@@ -106,7 +106,7 @@ impl Registers {
         }
     }
 
-    pub fn get_word_register_mut(&mut self, r: WordRegisterName) -> WordRegisterRefMut {
+    pub fn get_word_register_mut(&mut self, r: WordRegisterName) -> WordRegisterRefMut<'_> {
         use WordRegisterName::*;
         match r {
             BC => self.bc_mut(),
@@ -183,9 +183,13 @@ impl_register_pair_methods!(
 bitflags! {
     #[derive(Copy, Clone)]
     pub struct CpuFlagRegister: u8 {
+        // Z Flag, set if result of an operation is zero.
         const ZERO_FLAG = 1 << 7;
+        // N Flag, used by DAA instruction, set if previous instruction has been a subtraction
         const SUB_FLAG = 1 << 6;
+        // H Flag, used by DAA instruction, set if lower nibble of the result have carried
         const HALF_CARRY_FLAG = 1 << 5;
+        // C Flag, set if upper nibble of the result have carried
         const CARRY_FLAG = 1 << 4;
     }
 }

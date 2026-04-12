@@ -1,4 +1,4 @@
-use std::{env, fs::{self, File}, io::Read, path, process::ExitCode};
+use std::{env, fs::{self}, path, process::ExitCode};
 
 use crate::{cpu::Cpu, rom::Rom};
 

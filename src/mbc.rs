@@ -1,6 +1,6 @@
 pub mod romonly;
 
-use crate::{mbc::romonly::RomOnly, memory::{ReadMemory, ReadWriteMemory, WriteMemory}, rom};
+use crate::{mbc::romonly::RomOnly, memory::ReadWriteMemory, rom};
 
 
 #[derive(Default, Debug)]

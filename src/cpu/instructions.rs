@@ -1,5 +1,6 @@
-use crate::cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}};
+use wgpu::naga::common;
 
+use crate::cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}};
 // TODO; figure out how to do the errors properly
 #[derive(Debug)]
 struct OperandTooWide;
@@ -57,10 +58,31 @@ impl Operand2 {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum ConditionalOperand {
+    NZ,
+    Z,
+    NC,
+    C,
+}
+
+impl ConditionalOperand {
+    fn new(idx: u8) -> Result<Self, OperandTooWide> {
+        match idx {
+            0 => Ok(Self::NZ),
+            1 => Ok(Self::Z),
+            2 => Ok(Self::NC),
+            3 => Ok(Self::C),
+            _ => Err(OperandTooWide)
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum Instruction {
     Nop,
     JumpRegister,
+    JumpRelativeConditional { operand: ConditionalOperand },
     XorRegister { operand: Operand3 },
     LoadImmediate16 { operand: Operand2 },
 }
@@ -80,8 +102,12 @@ impl Instruction {
                 let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
                 Ok(Self::LoadImmediate16 { operand })
             },
+            op if common_bits(op, 0b0010_0000) => {
+                let idx = get_000xx000(op);
+                let operand = ConditionalOperand::new(idx).unwrap();
+                Ok(Self::JumpRelativeConditional { operand })
+            },
             _ => Err(CpuError::InvalidInstruction)
-
         }
     }
 }
@@ -96,4 +122,8 @@ fn get_00xxx000(byte: u8) -> u8 {
 
 fn get_00xx0000(byte: u8) -> u8 {
     (byte >> 4) & 0b11
+}
+
+fn get_000xx000(byte: u8) -> u8 {
+    (byte >> 3) & 0b11
 }
