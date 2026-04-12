@@ -84,7 +84,8 @@ pub enum Instruction {
     JumpRegister,
     JumpRelativeConditional { operand: ConditionalOperand },
     XorRegister { operand: Operand3 },
-    LoadImmediate16 { operand: Operand2 },
+    LoadIndirectHLToRegister8 { operand: Operand3 },
+    LoadImmediateToRegister16 { operand: Operand2 },
 }
 
 impl Instruction {
@@ -100,12 +101,17 @@ impl Instruction {
             op if common_bits(op, 0b0000_0001) => {
                 let idx = get_00xx0000(op);
                 let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
-                Ok(Self::LoadImmediate16 { operand })
+                Ok(Self::LoadImmediateToRegister16 { operand })
             },
             op if common_bits(op, 0b0010_0000) => {
                 let idx = get_000xx000(op);
                 let operand = ConditionalOperand::new(idx).unwrap();
                 Ok(Self::JumpRelativeConditional { operand })
+            },
+            op if common_bits(op, 0b0100_0110) => {
+                let idx = get_00xxx000(op);
+                let operand = Operand3::new(idx).unwrap();
+                Ok(Self::LoadIndirectHLToRegister8 { operand })
             },
             _ => Err(CpuError::InvalidInstruction)
         }

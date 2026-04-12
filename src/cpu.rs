@@ -2,6 +2,7 @@ use bitflags::{Flags, bitflags};
 
 use crate::{cpu::{instructions::{ConditionalOperand, Instruction, Operand3}, register::{CpuFlagRegister, Registers, WordRegisterRead, WordRegisterWrite}}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
+//PC 036C is when tiles are loaded probably
 mod register;
 mod instructions;
 
@@ -43,6 +44,7 @@ impl Cpu {
                 Instruction::JumpRegister => {
                     let addr = self.consume_pc_u16();
 
+                    println!("jumping to {:x}", addr);
                     self.registers.pc_mut().set(addr);
                     MachineCycle(4)
                 },
@@ -72,7 +74,17 @@ impl Cpu {
                         Operand3::IndirectHL => MachineCycle(3),
                     }
                 },
-                Instruction::LoadImmediate16 { operand } => {
+                Instruction::LoadIndirectHLToRegister8 { operand } => {
+                    let hl_address = self.registers.hl().get_u16();
+                    let hl_val = self.memory.read_memory_u8(hl_address);
+                    match operand {
+                        Operand3::Register(r) => self.registers.get_short_register_mut(r).set_u8(hl_val),
+                        Operand3::IndirectHL => self.memory.write_memory_u8(hl_address, hl_val),
+                    };
+
+                    MachineCycle(2)
+                },
+                Instruction::LoadImmediateToRegister16 { operand } => {
                     let val = self.consume_pc_u16();
                     self.registers.get_word_register_mut(operand.register).set_u16(val);
                     MachineCycle(3)
@@ -98,7 +110,7 @@ impl Cpu {
         let cur_pc = pc.get();
         pc.set(cur_pc + 1);
 
-        self.memory.read_memory_u8(pc.get() as usize)
+        self.memory.read_memory_u8(cur_pc)
     }
 
     fn consume_pc_u16(&mut self) -> u16 {
