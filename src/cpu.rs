@@ -1,9 +1,13 @@
 use bitflags::{Flags, bitflags};
 
-use crate::{cpu::{instructions::Instruction, register::Registers}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
+use crate::{cpu::{instructions::{Instruction, Operand3}, register::{CpuFlagRegister, Registers, WordRegisterRead, WordRegisterWrite}}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
 mod register;
 mod instructions;
+
+pub enum CpuError {
+    InvalidInstruction,
+}
 
 pub struct Cpu {
     registers: register::Registers,
@@ -24,40 +28,33 @@ impl Cpu {
     pub fn run(&mut self) {
         loop {
             println!("reading opcode at {:x}", self.registers.pc().get());
-            let opcode = self.read_at_pc_then_inc();
-            if let Some(i) = Instruction::new(opcode) {
+            let opcode = self.consume_pc_byte();
+            if let Ok(i) = Instruction::new(opcode) {
                 match i {
-                    Instruction::Nop => { // nop
-
+                    Instruction::Nop => {
+                        // nop
                     },
                     Instruction::JumpRegister => {
-                        let addr_lsb = self.read_at_pc_then_inc() as u16;
-                        let addr_msb = self.read_at_pc_then_inc() as u16;
+                        let addr = self.consume_pc_word();
 
-                        let addr = (addr_msb << 8) | addr_lsb;
                         println!("jump addr: {:x}", addr);
-                        self.registers.pc().set(addr);
+                        self.registers.pc_mut().set(addr);
                     },
-                    Instruction::XorRegister { register } => {
-                        let operand = self.registers.
-                        let a = self.registers.a();
+                    Instruction::XorRegister { operand } => {
+                        let value = match operand {
+                            Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
+                            Operand3::IndirectHL => self.memory.read_memory_u8(self.registers.hl().get_u16().into()),
+                        };
 
-                        let result = a ^ operand;
-                        self.registers.set_a(result);
+                        let result = self.registers.a_mut().update(|a| a ^ value);
 
-                        let mut flags = CpuFlagRegister::empty();
                         if result == 0 {
-                            flags |= CpuFlagRegister::ZERO_FLAG;
+                            self.registers.f_mut().set(CpuFlagRegister::ZERO_FLAG);
                         }
-                        self.registers.set_f(flags);
                     },
-                    op if (op & 0b0000_0001) == (0b0000_0001) => {
-                        println!("{}", (op & 0b111));
-                        let operand = self.registers.get_8_bit(((opcode >> 4) & 0b11) as usize).unwrap();
-                        let val_lsb = self.read_at_pc_then_inc() as u16;
-                        let val_msb = self.read_at_pc_then_inc() as u16;
-
-                        let val = (val_msb << 8) | val_lsb;
+                    Instruction::LoadImmediate16 { operand } => {
+                        let val = self.consume_pc_word();
+                        self.registers.get_word_register_mut(operand.register).set_u16(val);
                     },
                 }
             } else {
@@ -66,12 +63,23 @@ impl Cpu {
         }
     }
 
-    pub fn read_at_pc_then_inc(&mut self) -> u8 {
+    fn consume_pc_byte(&mut self) -> u8 {
         let pc = self.registers.pc_mut();
         let cur_pc = pc.get();
         pc.set(cur_pc + 1);
 
         self.memory.read_memory_u8(pc.get() as usize)
     }
+
+    fn consume_pc_word(&mut self) -> u16 {
+        let lsb = self.consume_pc_byte();
+        let msb = self.consume_pc_byte();
+
+        u16_le(lsb, msb)
+    }
+}
+
+fn u16_le(lsb: u8, msb: u8) -> u16 {
+    ((msb as u16) << 8) | lsb as u16
 }
 

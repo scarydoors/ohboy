@@ -30,23 +30,6 @@ pub enum ShortRegisterName {
 
     H,
     L,
-    HLIndirect,
-}
-impl ShortRegisterName {
-    pub fn from_3_bit_index(idx: usize) -> Option<Self> {
-        [
-            Self::B,
-            Self::C,
-            Self::D,
-            Self::E,
-            Self::H,
-            Self::L,
-            Self::HLIndirect,
-            Self::A
-        ]
-            .get(idx)
-            .copied()
-    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -58,19 +41,6 @@ pub enum WordRegisterName {
 
     PC,
     SP,
-}
-
-impl WordRegisterName {
-    pub fn from_2_bit_index(idx: usize) -> Option<Self> {
-        [
-            Self::BC,
-            Self::DE,
-            Self::HL,
-            Self::AF
-        ]
-            .get(idx)
-            .copied()
-    }
 }
 
 impl Registers {
@@ -94,35 +64,33 @@ impl Registers {
         }
     }
     
-    pub fn get_short_register(&self, r: ShortRegisterName) -> Result<&dyn ByteRegisterRead, String> {
+    pub fn get_short_register(&self, r: ShortRegisterName) -> &dyn ByteRegisterRead {
         use ShortRegisterName::*;
 
         match r {
-            A => Ok(self.a()),
-            F => Ok(self.f()),
-            B => Ok(self.b()),
-            C => Ok(self.c()),
-            D => Ok(self.d()),
-            E => Ok(self.e()),
-            H => Ok(self.h()),
-            L => Ok(self.l()),
-            HLIndirect => Err("must handle HL indirect manually".into()),
+            A => self.a(),
+            F => self.f(),
+            B => self.b(),
+            C => self.c(),
+            D => self.d(),
+            E => self.e(),
+            H => self.h(),
+            L => self.l(),
         }
     }
 
-    pub fn get_short_register_mut(&mut self, r: ShortRegisterName) -> Result<&mut dyn ByteRegisterWrite, String> {
+    pub fn get_short_register_mut(&mut self, r: ShortRegisterName) -> &mut dyn ByteRegisterWrite {
         use ShortRegisterName::*;
 
         match r {
-            A => Ok(self.a_mut()),
-            F => Ok(self.f_mut()),
-            B => Ok(self.b_mut()),
-            C => Ok(self.c_mut()),
-            D => Ok(self.d_mut()),
-            E => Ok(self.e_mut()),
-            H => Ok(self.h_mut()),
-            L => Ok(self.l_mut()),
-            HLIndirect => Err("must handle HL indirect manually".into()),
+            A => self.a_mut(),
+            F => self.f_mut(),
+            B => self.b_mut(),
+            C => self.c_mut(),
+            D => self.d_mut(),
+            E => self.e_mut(),
+            H => self.h_mut(),
+            L => self.l_mut(),
         }
     }
 
@@ -191,11 +159,11 @@ macro_rules! impl_register_pair_methods {
         paste::item! {
             $(
                 impl Registers {
-                    pub fn [<$high $low>](&self) -> WordRegisterRef {
+                    pub fn [<$high $low>](&self) -> WordRegisterRef<'_> {
                         WordRegisterRef::Pair {high: &self.$high, low: &self.$low}
                     }
 
-                    pub fn [<$high $low _mut>](&mut self) -> WordRegisterRefMut {
+                    pub fn [<$high $low _mut>](&mut self) -> WordRegisterRefMut<'_> {
                         WordRegisterRefMut::Pair {high: &mut self.$high, low: &mut self.$low}
                     }
                 }
@@ -214,7 +182,7 @@ impl_register_pair_methods!(
 
 bitflags! {
     #[derive(Copy, Clone)]
-    struct CpuFlagRegister: u8 {
+    pub struct CpuFlagRegister: u8 {
         const ZERO_FLAG = 1 << 7;
         const SUB_FLAG = 1 << 6;
         const HALF_CARRY_FLAG = 1 << 5;
@@ -238,8 +206,10 @@ impl<T: Copy> Register<T> {
         self.0 = value
     }
 
-    pub fn update<F: Fn(T) -> T>(&mut self, f: F) {
-        self.set(f(self.get()))
+    pub fn update<F: Fn(T) -> T>(&mut self, f: F) -> T {
+        let result = f(self.get());
+        self.set(f(self.get()));
+        result
     }
 }
 
@@ -249,8 +219,10 @@ pub trait ByteRegisterRead {
 
 pub trait ByteRegisterWrite: ByteRegisterRead {
     fn set_u8(&mut self, value: u8);
-    fn update_u8(&mut self, f: &dyn Fn(u8) -> u8) {
-        self.set_u8(f(self.get_u8()))
+    fn update_u8(&mut self, f: &dyn Fn(u8) -> u8) -> u8 {
+        let result = f(self.get_u8());
+        self.set_u8(result);
+        result
     }
 }
 
@@ -290,8 +262,10 @@ pub trait WordRegisterRead {
 
 pub trait WordRegisterWrite: WordRegisterRead {
     fn set_u16(&mut self, value: u16);
-    fn update_u16(&mut self, f: &dyn Fn(u16) -> u16) {
-        self.set_u16(f(self.get_u16()))
+    fn update_u16(&mut self, f: &dyn Fn(u16) -> u16) -> u16 {
+        let result = f(self.get_u16());
+        self.set_u16(result);
+        result
     }
 }
 
@@ -307,41 +281,34 @@ impl WordRegisterWrite for Register<u16> {
     }
 }
 
+macro_rules! impl_word_register_read {
+    ($ty:ty) => {
+        impl<'a> WordRegisterRead for $ty {
+            fn get_u16(&self) -> u16 {
+                match self {
+                    Self::Pair { high, low } => {
+                        (high.get_u8() as u16) << 8 | low.get_u8() as u16
+                    }
+                    Self::Single(r) => r.get_u16(),
+                }
+            }
+        }
+    };
+}
+
 pub enum WordRegisterRef<'a> {
     Pair {high: &'a dyn ByteRegisterRead, low: &'a dyn ByteRegisterRead},
     Single(&'a dyn WordRegisterRead)
 }
 
-impl<'a> WordRegisterRead for WordRegisterRef<'a> {
-    fn get_u16(&self) -> u16 {
-        match self {
-            Self::Pair { high, low } => {
-                (high.get_u8() as u16) << 8  | low.get_u8() as u16
-            },
-            Self::Single(r) => {
-                r.get_u16()
-            },
-        }
-    }
-}
+impl_word_register_read!(WordRegisterRef<'a>);
 
 pub enum WordRegisterRefMut<'a> {
     Pair { high: &'a mut dyn ByteRegisterWrite, low: &'a mut dyn ByteRegisterWrite },
     Single(&'a mut dyn WordRegisterWrite)
 }
 
-impl<'a> WordRegisterRead for WordRegisterRefMut<'a> {
-    fn get_u16(&self) -> u16 {
-        match self {
-            Self::Pair { high, low } => {
-                (high.get_u8() as u16) << 8  | low.get_u8() as u16
-            },
-            Self::Single(r) => {
-                r.get_u16()
-            },
-        }
-    }
-}
+impl_word_register_read!(WordRegisterRefMut<'a>);
 
 impl<'a> WordRegisterWrite for WordRegisterRefMut<'a> {
     fn set_u16(&mut self, value: u16) {
