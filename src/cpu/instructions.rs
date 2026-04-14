@@ -129,9 +129,9 @@ impl RawInstruction {
     pub fn new(opcode: u8) -> Result<Self, CpuError> {
         match opcode {
             0x00 => Ok(Self::Nop),
-            0xC3 => Ok(Self::JumpRegister),
+            0xC3 => Ok(Self::JumpImmediate),
             op if common_bits(op, 0b1010_1000) => {
-                let idx = get_00xxx000(op);
+                let idx = get_00000xxx(op);
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::XorRegister { operand })
             },
@@ -169,4 +169,7 @@ fn get_00xx0000(byte: u8) -> u8 {
 
 fn get_000xx000(byte: u8) -> u8 {
     (byte >> 3) & 0b11
+}
+fn get_00000xxx(byte: u8) -> u8 {
+    byte & 0b111
 }
