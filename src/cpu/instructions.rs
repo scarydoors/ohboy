@@ -9,6 +9,15 @@ pub enum Operand3 {
     IndirectHL,
 }
 
+impl std::fmt::Display for Operand3 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Operand3::Register(r) => write!(f, "{}", r),
+            Operand3::IndirectHL => write!(f, "[hl]"),
+        }
+    }
+}
+
 impl Operand3 {
     fn new(idx: u8) -> Result<Self, OperandTooWide> {
         match idx {
@@ -28,6 +37,12 @@ impl Operand3 {
 #[derive(Copy, Clone, Debug)]
 pub struct Operand2 {
     pub register: WordRegisterName
+}
+
+impl std::fmt::Display for Operand2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.register)
+    }
 }
 
 enum LastOperand2 {
@@ -62,6 +77,17 @@ pub enum ConditionalOperand {
     Z,
     NC,
     C,
+}
+
+impl std::fmt::Display for ConditionalOperand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConditionalOperand::NZ => write!(f, "nz"),
+            ConditionalOperand::Z => write!(f, "z"),
+            ConditionalOperand::NC => write!(f, "nc"),
+            ConditionalOperand::C => write!(f, "c"),
+        }
+    }
 }
 
 impl ConditionalOperand {
@@ -118,11 +144,11 @@ macro_rules! instructions {
 
 instructions!(
     Nop,
-    JumpRegister | { address: u8 },
+    JumpImmediate | { address: u16 },
     JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
     LoadIndirectHLToRegister8 { operand: Operand3 },
-    LoadImmediateToRegister16 { operand: Operand2 },
+    LoadImmediateToRegister16 { operand: Operand2 } | { immediate: u16 },
 );
 
 impl RawInstruction {
@@ -170,6 +196,21 @@ fn get_00xx0000(byte: u8) -> u8 {
 fn get_000xx000(byte: u8) -> u8 {
     (byte >> 3) & 0b11
 }
+
 fn get_00000xxx(byte: u8) -> u8 {
     byte & 0b111
 }
+
+impl std::fmt::Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Instruction::Nop => write!(f, "nop"),
+            Instruction::JumpImmediate { address } => write!(f, "jp {:#x}", address),
+            Instruction::JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
+            Instruction::XorRegister { operand } => write!(f, "xor {}", operand),
+            Instruction::LoadIndirectHLToRegister8 { operand } => write!(f, "ld {}, [hl]", operand),
+            Instruction::LoadImmediateToRegister16 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
+        }
+    }
+}
+

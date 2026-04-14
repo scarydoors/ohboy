@@ -1,6 +1,6 @@
 use bitflags::{Flags, bitflags};
 
-use crate::{cpu::{instructions::{ConditionalOperand, RawInstruction, Operand3}, register::{CpuFlagRegister, Registers, WordRegisterRead, WordRegisterWrite}}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
+use crate::{cpu::{instructions::{ConditionalOperand, Instruction, Operand3, RawInstruction}, register::{CpuFlagRegister, Registers, WordRegisterRead, WordRegisterWrite}}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
 //PC 0x2817 is when tiles are loaded probably
 mod register;
@@ -29,32 +29,35 @@ impl Cpu {
 
     pub fn run(&mut self) {
         loop {
-            let m_cycles = self.cycle();
+            let (m_cycles, instruction) = self.cycle();
+            println!("{}", instruction);
         }
     }
 
-    pub fn cycle(&mut self) -> MachineCycle {
-        println!("reading opcode at {:x}", self.registers.pc().get());
+    pub fn cycle(&mut self) -> (MachineCycle, Instruction) {
+        //println!("reading opcode at {:x}", self.registers.pc().get());
         let opcode = self.consume_pc_u8();
         if let Ok(i) = RawInstruction::new(opcode) {
             match i {
                 RawInstruction::Nop => {
-                    MachineCycle(1)
+                    (MachineCycle(1), Instruction::Nop)
                 },
-                RawInstruction::JumpRegister => {
-                    let addr = self.consume_pc_u16();
+                RawInstruction::JumpImmediate => {
+                    let address = self.consume_pc_u16();
 
-                    self.registers.pc_mut().set(addr);
-                    MachineCycle(4)
+                    self.registers.pc_mut().set(address);
+                    (MachineCycle(4), Instruction::JumpImmediate { address })
                 },
                 RawInstruction::JumpRelativeConditional { operand } => {
                     let relative = self.consume_pc_i8();
-                    if self.check_condition(operand) {
+                    let machine_cycle = if self.check_condition(operand) {
                         self.registers.pc_mut().update(|pc| pc.wrapping_add_signed(relative as i16));
                         MachineCycle(3)
                     } else {
                         MachineCycle(2)
-                    }
+                    };
+
+                    (machine_cycle, Instruction::JumpRelativeConditional { operand, relative })
                 },
                 RawInstruction::XorRegister { operand } => {
                     let value = match operand {
@@ -68,10 +71,12 @@ impl Cpu {
                         self.registers.f_mut().set(CpuFlagRegister::ZERO_FLAG);
                     }
 
-                    match operand {
+                    let machine_cycle = match operand {
                         Operand3::Register(_) => MachineCycle(2),
                         Operand3::IndirectHL => MachineCycle(3),
-                    }
+                    };
+
+                    (machine_cycle, Instruction::XorRegister { operand })
                 },
                 RawInstruction::LoadIndirectHLToRegister8 { operand } => {
                     let hl_address = self.registers.hl().get_u16();
@@ -81,12 +86,12 @@ impl Cpu {
                         Operand3::IndirectHL => self.memory.write_memory_u8(hl_address, hl_val),
                     };
 
-                    MachineCycle(2)
+                    (MachineCycle(2), Instruction::LoadIndirectHLToRegister8 { operand })
                 },
                 RawInstruction::LoadImmediateToRegister16 { operand } => {
-                    let val = self.consume_pc_u16();
-                    self.registers.get_word_register_mut(operand.register).set_u16(val);
-                    MachineCycle(3)
+                    let immediate = self.consume_pc_u16();
+                    self.registers.get_word_register_mut(operand.register).set_u16(immediate);
+                    (MachineCycle(3), Instruction::LoadImmediateToRegister16 { operand, immediate })
                 },
             }
         } else {

@@ -32,6 +32,21 @@ pub enum ShortRegisterName {
     L,
 }
 
+impl std::fmt::Display for ShortRegisterName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ShortRegisterName::A => write!(f, "a"),
+            ShortRegisterName::F => write!(f, "f"),
+            ShortRegisterName::B => write!(f, "b"),
+            ShortRegisterName::C => write!(f, "c"),
+            ShortRegisterName::D => write!(f, "d"),
+            ShortRegisterName::E => write!(f, "e"),
+            ShortRegisterName::H => write!(f, "h"),
+            ShortRegisterName::L => write!(f, "l"),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum WordRegisterName {
     BC,
@@ -41,6 +56,19 @@ pub enum WordRegisterName {
 
     PC,
     SP,
+}
+
+impl std::fmt::Display for WordRegisterName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WordRegisterName::BC => write!(f, "bc"),
+            WordRegisterName::DE => write!(f, "de"),
+            WordRegisterName::HL => write!(f, "hl"),
+            WordRegisterName::AF => write!(f, "af"),
+            WordRegisterName::PC => write!(f, "pc"),
+            WordRegisterName::SP => write!(f, "sp"),
+        }
+    }
 }
 
 impl Registers {
