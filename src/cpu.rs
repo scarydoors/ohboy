@@ -1,8 +1,8 @@
 use bitflags::{Flags, bitflags};
 
-use crate::{cpu::{instructions::{ConditionalOperand, Instruction, Operand3}, register::{CpuFlagRegister, Registers, WordRegisterRead, WordRegisterWrite}}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
+use crate::{cpu::{instructions::{ConditionalOperand, RawInstruction, Operand3}, register::{CpuFlagRegister, Registers, WordRegisterRead, WordRegisterWrite}}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
-//PC 036C is when tiles are loaded probably
+//PC 0x2817 is when tiles are loaded probably
 mod register;
 mod instructions;
 
@@ -36,19 +36,18 @@ impl Cpu {
     pub fn cycle(&mut self) -> MachineCycle {
         println!("reading opcode at {:x}", self.registers.pc().get());
         let opcode = self.consume_pc_u8();
-        if let Ok(i) = Instruction::new(opcode) {
+        if let Ok(i) = RawInstruction::new(opcode) {
             match i {
-                Instruction::Nop => {
+                RawInstruction::Nop => {
                     MachineCycle(1)
                 },
-                Instruction::JumpRegister => {
+                RawInstruction::JumpRegister => {
                     let addr = self.consume_pc_u16();
 
-                    println!("jumping to {:x}", addr);
                     self.registers.pc_mut().set(addr);
                     MachineCycle(4)
                 },
-                Instruction::JumpRelativeConditional { operand } => {
+                RawInstruction::JumpRelativeConditional { operand } => {
                     let relative = self.consume_pc_i8();
                     if self.check_condition(operand) {
                         self.registers.pc_mut().update(|pc| pc.wrapping_add_signed(relative as i16));
@@ -57,7 +56,7 @@ impl Cpu {
                         MachineCycle(2)
                     }
                 },
-                Instruction::XorRegister { operand } => {
+                RawInstruction::XorRegister { operand } => {
                     let value = match operand {
                         Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
                         Operand3::IndirectHL => self.memory.read_memory_u8(self.registers.hl().get_u16().into()),
@@ -74,7 +73,7 @@ impl Cpu {
                         Operand3::IndirectHL => MachineCycle(3),
                     }
                 },
-                Instruction::LoadIndirectHLToRegister8 { operand } => {
+                RawInstruction::LoadIndirectHLToRegister8 { operand } => {
                     let hl_address = self.registers.hl().get_u16();
                     let hl_val = self.memory.read_memory_u8(hl_address);
                     match operand {
@@ -84,7 +83,7 @@ impl Cpu {
 
                     MachineCycle(2)
                 },
-                Instruction::LoadImmediateToRegister16 { operand } => {
+                RawInstruction::LoadImmediateToRegister16 { operand } => {
                     let val = self.consume_pc_u16();
                     self.registers.get_word_register_mut(operand.register).set_u16(val);
                     MachineCycle(3)

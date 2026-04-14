@@ -1,5 +1,3 @@
-use wgpu::naga::common;
-
 use crate::cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}};
 // TODO; figure out how to do the errors properly
 #[derive(Debug)]
@@ -78,17 +76,56 @@ impl ConditionalOperand {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum Instruction {
+
+macro_rules! instructions {
+    (@full [$($variant:tt)*]) => {
+        #[derive(Clone, Copy, Debug)]
+        pub enum Instruction {
+            $($variant)*
+        }
+    };
+    (@full [$($variant:tt)*] $name:ident {$($raw_field:ident: $raw_type:ident),*} | {$($full_field:ident: $full_type:ident),*}, $($rest:tt)*) => {
+        instructions!(@full [$($variant)* $name {$($raw_field: $raw_type),*,$($full_field: $full_type),*},] $($rest)*);
+    };
+
+    (@full [$($variant:tt)*] $name:ident | {$($full_field:ident: $full_type:ident),*}, $($rest:tt)*) => {
+        instructions!(@full [$($variant)* $name {$($full_field: $full_type),*},] $($rest)*);
+    };
+
+    (@full [$($variant:tt)*] $name:ident {$($raw_field:ident: $raw_type:ident),*}, $($rest:tt)*) => {
+        instructions!(@full [$($variant)* $name {$($raw_field: $raw_type),*},] $($rest)*);
+    };
+
+    (@full [$($variant:tt)*] $name:ident, $($rest:tt)*) => {
+        instructions!(@full [$($variant)* $name,] $($rest)*);
+    };
+
+    (@raw [$($variant:tt)*]) => {
+        #[derive(Clone, Copy, Debug)]
+        pub enum RawInstruction {
+            $($variant)*
+        }
+    };
+    (@raw [$($variant:tt)*] $name:ident $({$($raw_field:ident: $raw_type:ident),*})? $(| {$($_ignored:tt)*})?, $($rest:tt)*) => {
+        instructions!(@raw [$($variant)* $name $({ $($raw_field: $raw_type),* })?,] $($rest)*);
+    };
+
+    ($($rest:tt)*) => {
+        instructions!(@full [] $($rest)*);
+        instructions!(@raw [] $($rest)*);
+    };
+}
+
+instructions!(
     Nop,
-    JumpRegister,
-    JumpRelativeConditional { operand: ConditionalOperand },
+    JumpRegister | { address: u8 },
+    JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
     LoadIndirectHLToRegister8 { operand: Operand3 },
     LoadImmediateToRegister16 { operand: Operand2 },
-}
+);
 
-impl Instruction {
+impl RawInstruction {
     pub fn new(opcode: u8) -> Result<Self, CpuError> {
         match opcode {
             0x00 => Ok(Self::Nop),
