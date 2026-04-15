@@ -35,6 +35,7 @@ fn process_byte_pattern(input: syn::LitStr) -> Result<TokenStream, syn::Error> {
                     .collect();
             },
             '_' => {},
+            // TODO: fix error message haha
             _ => return Err(syn::Error::new_spanned(input, "expected pattern to start with 0b"))
         }
     }
