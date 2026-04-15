@@ -88,6 +88,17 @@ impl Cpu {
 
                     (MachineCycle(2), Instruction::LoadIndirectHLToRegister8 { operand })
                 },
+                RawInstruction::LoadImmediateToRegister8 { operand } => {
+                    let immediate = self.consume_pc_u8();
+                    match operand {
+                        Operand3::Register(r) => self.registers.get_short_register_mut(r).set_u8(immediate),
+                        Operand3::IndirectHL => {
+                            let address = self.registers.hl().get_u16();
+                            self.memory.write_memory_u8(address, immediate);
+                        }
+                    }
+                    (MachineCycle(2), Instruction::LoadImmediateToRegister8 { operand, immediate })
+                },
                 RawInstruction::LoadImmediateToRegister16 { operand } => {
                     let immediate = self.consume_pc_u16();
                     self.registers.get_word_register_mut(operand.register).set_u16(immediate);

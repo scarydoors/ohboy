@@ -148,6 +148,7 @@ instructions!(
     JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
     LoadIndirectHLToRegister8 { operand: Operand3 },
+    LoadImmediateToRegister8 { operand: Operand3 } | { immediate: u8 },
     LoadImmediateToRegister16 { operand: Operand2 } | { immediate: u16 },
 );
 
@@ -161,11 +162,6 @@ impl RawInstruction {
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::XorRegister { operand })
             },
-            op if common_bits(op, 0b0000_0001) => {
-                let idx = get_00xx0000(op);
-                let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
-                Ok(Self::LoadImmediateToRegister16 { operand })
-            },
             op if common_bits(op, 0b0010_0000) => {
                 let idx = get_000xx000(op);
                 let operand = ConditionalOperand::new(idx).unwrap();
@@ -175,6 +171,16 @@ impl RawInstruction {
                 let idx = get_00xxx000(op);
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::LoadIndirectHLToRegister8 { operand })
+            },
+            op if common_bits(op, 0b0000_0110) => {
+                let idx = get_00xxx000(op);
+                let operand = Operand3::new(idx).unwrap();
+                Ok(Self::LoadImmediateToRegister8 { operand })
+            },
+            op if common_bits(op, 0b0000_0001) => {
+                let idx = get_00xx0000(op);
+                let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
+                Ok(Self::LoadImmediateToRegister16 { operand })
             },
             _ => Err(CpuError::InvalidInstruction)
         }
@@ -209,6 +215,7 @@ impl std::fmt::Display for Instruction {
             Instruction::JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
             Instruction::XorRegister { operand } => write!(f, "xor {}", operand),
             Instruction::LoadIndirectHLToRegister8 { operand } => write!(f, "ld {}, [hl]", operand),
+            Instruction::LoadImmediateToRegister8 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
             Instruction::LoadImmediateToRegister16 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
         }
     }
