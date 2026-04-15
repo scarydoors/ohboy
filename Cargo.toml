@@ -6,3 +6,7 @@ members = [
     "crates/ohboy",
     "crates/ohboy_macro"
 ]
+
+[workspace.dependencies]
+
+ohboy_macro = { path = "crates/ohboy_macro" }

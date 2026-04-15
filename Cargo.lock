@@ -1305,6 +1305,7 @@ dependencies = [
  "bytemuck",
  "egui",
  "egui-wgpu",
+ "ohboy_macro",
  "paste",
  "pollster",
  "serde",

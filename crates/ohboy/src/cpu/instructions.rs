@@ -1,4 +1,5 @@
 use crate::cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}};
+use ohboy_macro::byte_pattern;
 // TODO; figure out how to do the errors properly
 #[derive(Debug)]
 struct OperandTooWide;
@@ -157,28 +158,28 @@ impl RawInstruction {
         match opcode {
             0x00 => Ok(Self::Nop),
             0xC3 => Ok(Self::JumpImmediate),
-            op if common_bits(op, 0b1010_1000) => {
-                let idx = get_00000xxx(op);
+            byte_pattern!("0b1010_1xxx") => {
+                let idx = get_0000_0xxx(opcode);
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::XorRegister { operand })
             },
-            op if common_bits(op, 0b0010_0000) => {
-                let idx = get_000xx000(op);
+            byte_pattern!("0b0010_xx00") => {
+                let idx = get_000x_x000(opcode);
                 let operand = ConditionalOperand::new(idx).unwrap();
                 Ok(Self::JumpRelativeConditional { operand })
             },
-            op if common_bits(op, 0b0100_0110) => {
-                let idx = get_00xxx000(op);
+            byte_pattern!("0b01xx_x110") => {
+                let idx = get_00xx_x000(opcode);
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::LoadIndirectHLToRegister8 { operand })
             },
-            op if common_bits(op, 0b0000_0110) => {
-                let idx = get_00xxx000(op);
+            byte_pattern!("0b00xx_x110") => {
+                let idx = get_00xx_x000(opcode);
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::LoadImmediateToRegister8 { operand })
             },
-            op if common_bits(op, 0b0000_0001) => {
-                let idx = get_00xx0000(op);
+            byte_pattern!("0b00xx_0001") => {
+                let idx = get_00xx_0000(opcode);
                 let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
                 Ok(Self::LoadImmediateToRegister16 { operand })
             },
@@ -187,23 +188,19 @@ impl RawInstruction {
     }
 }
 
-fn common_bits(left: u8, right: u8) -> bool {
-    left & right == right
-}
-
-fn get_00xxx000(byte: u8) -> u8 {
+fn get_00xx_x000(byte: u8) -> u8 {
     (byte >> 3) & 0b111
 }
 
-fn get_00xx0000(byte: u8) -> u8 {
+fn get_00xx_0000(byte: u8) -> u8 {
     (byte >> 4) & 0b11
 }
 
-fn get_000xx000(byte: u8) -> u8 {
+fn get_000x_x000(byte: u8) -> u8 {
     (byte >> 3) & 0b11
 }
 
-fn get_00000xxx(byte: u8) -> u8 {
+fn get_0000_0xxx(byte: u8) -> u8 {
     byte & 0b111
 }
 
