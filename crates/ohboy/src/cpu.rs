@@ -79,11 +79,11 @@ impl Cpu {
                     (machine_cycle, Instruction::XorRegister { operand })
                 },
                 RawInstruction::LoadIndirectHLToRegister8 { operand } => {
-                    let hl_address = self.registers.hl().get_u16();
-                    let hl_val = self.memory.read_memory_u8(hl_address);
+                    let address = self.registers.hl().get_u16();
+                    let val = self.memory.read_memory_u8(address);
                     match operand {
-                        Operand3::Register(r) => self.registers.get_short_register_mut(r).set_u8(hl_val),
-                        Operand3::IndirectHL => self.memory.write_memory_u8(hl_address, hl_val),
+                        Operand3::Register(r) => self.registers.get_short_register_mut(r).set_u8(val),
+                        Operand3::IndirectHL => self.memory.write_memory_u8(address, val),
                     };
 
                     (MachineCycle(2), Instruction::LoadIndirectHLToRegister8 { operand })
