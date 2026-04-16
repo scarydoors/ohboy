@@ -62,7 +62,7 @@ impl Cpu {
                 RawInstruction::XorRegister { operand } => {
                     let value = match operand {
                         Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
-                        Operand3::IndirectHL => self.memory.read_memory_u8(self.registers.hl().get_u16().into()),
+                        Operand3::IndirectHL => self.memory.read_memory(self.registers.hl().get_u16().into()),
                     };
 
                     let result = self.registers.a_mut().update(|a| a ^ value);
@@ -78,12 +78,31 @@ impl Cpu {
 
                     (machine_cycle, Instruction::XorRegister { operand })
                 },
+                RawInstruction::LoadAccumulatorToIndirect { operand } => {
+                    let mut register = self.registers.get_word_register_mut(operand.register());
+                    let address = match operand {
+                        instructions::MemoryOperand::HLInc => {
+                            let address = register.get_u16();
+                            register.update_u16(&|hl| hl + 1);
+                            address
+                        },
+                        instructions::MemoryOperand::HLDec => {
+                            let address = register.get_u16();
+                            register.update_u16(&|hl| hl - 1);
+                            address
+                        },
+                        _ => register.get_u16(),
+                    };
+                    let a = self.registers.a().get();
+                    self.memory.write_memory(address, a);
+                    (MachineCycle(2), Instruction::LoadAccumulatorToIndirect { operand })
+                },
                 RawInstruction::LoadIndirectHLToRegister8 { operand } => {
                     let address = self.registers.hl().get_u16();
-                    let val = self.memory.read_memory_u8(address);
+                    let val = self.memory.read_memory(address);
                     match operand {
                         Operand3::Register(r) => self.registers.get_short_register_mut(r).set_u8(val),
-                        Operand3::IndirectHL => self.memory.write_memory_u8(address, val),
+                        Operand3::IndirectHL => self.memory.write_memory(address, val),
                     };
 
                     (MachineCycle(2), Instruction::LoadIndirectHLToRegister8 { operand })
@@ -94,7 +113,7 @@ impl Cpu {
                         Operand3::Register(r) => self.registers.get_short_register_mut(r).set_u8(immediate),
                         Operand3::IndirectHL => {
                             let address = self.registers.hl().get_u16();
-                            self.memory.write_memory_u8(address, immediate);
+                            self.memory.write_memory(address, immediate);
                         }
                     }
                     (MachineCycle(2), Instruction::LoadImmediateToRegister8 { operand, immediate })
@@ -125,7 +144,7 @@ impl Cpu {
         let cur_pc = pc.get();
         pc.set(cur_pc + 1);
 
-        self.memory.read_memory_u8(cur_pc)
+        self.memory.read_memory(cur_pc)
     }
 
     fn consume_pc_u16(&mut self) -> u16 {

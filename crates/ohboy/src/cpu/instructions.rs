@@ -1,5 +1,7 @@
 use crate::cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}};
 use ohboy_macro::{byte_permutations, match_bits};
+
+
 // TODO; figure out how to do the errors properly
 #[derive(Debug)]
 struct OperandTooWide;
@@ -80,17 +82,6 @@ pub enum ConditionalOperand {
     C,
 }
 
-impl std::fmt::Display for ConditionalOperand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ConditionalOperand::NZ => write!(f, "nz"),
-            ConditionalOperand::Z => write!(f, "z"),
-            ConditionalOperand::NC => write!(f, "nc"),
-            ConditionalOperand::C => write!(f, "c"),
-        }
-    }
-}
-
 impl ConditionalOperand {
     fn new(idx: u8) -> Result<Self, OperandTooWide> {
         match idx {
@@ -103,6 +94,55 @@ impl ConditionalOperand {
     }
 }
 
+impl std::fmt::Display for ConditionalOperand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConditionalOperand::NZ => write!(f, "nz"),
+            ConditionalOperand::Z => write!(f, "z"),
+            ConditionalOperand::NC => write!(f, "nc"),
+            ConditionalOperand::C => write!(f, "c"),
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum MemoryOperand {
+    BC,
+    DE,
+    HLInc,
+    HLDec,
+}
+
+impl MemoryOperand {
+    fn new(idx: u8) -> Result<Self, OperandTooWide> {
+        match idx {
+            0 => Ok(Self::BC),
+            1 => Ok(Self::DE),
+            2 => Ok(Self::HLInc),
+            3 => Ok(Self::HLDec),
+            _ => Err(OperandTooWide)
+        }
+    }
+
+    pub fn register(&self) -> WordRegisterName {
+        match self {
+            MemoryOperand::BC => WordRegisterName::BC,
+            MemoryOperand::DE => WordRegisterName::DE,
+            MemoryOperand::HLInc | MemoryOperand::HLDec => WordRegisterName::HL,
+        }
+    }
+}
+
+impl std::fmt::Display for MemoryOperand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MemoryOperand::BC => write!(f, "[bc]"),
+            MemoryOperand::DE => write!(f, "[de]"),
+            MemoryOperand::HLInc => write!(f, "[hl+]"),
+            MemoryOperand::HLDec => write!(f, "[hl-]"),
+        }
+    }
+}
 
 macro_rules! instructions {
     (@full [$($variant:tt)*]) => {
@@ -148,6 +188,7 @@ instructions!(
     JumpImmediate | { address: u16 },
     JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
+    LoadAccumulatorToIndirect { operand: MemoryOperand },
     LoadIndirectHLToRegister8 { operand: Operand3 },
     LoadImmediateToRegister8 { operand: Operand3 } | { immediate: u8 },
     LoadImmediateToRegister16 { operand: Operand2 } | { immediate: u16 },
@@ -164,44 +205,33 @@ impl RawInstruction {
                 Ok(Self::XorRegister { operand })
             },
             byte_permutations!("0b0010_xx00") => {
-                let idx = get_000x_x000(opcode);
+                let idx = match_bits!(opcode, "0b0010_xx00");
                 let operand = ConditionalOperand::new(idx).unwrap();
                 Ok(Self::JumpRelativeConditional { operand })
             },
+            byte_permutations!("0b00xx_0010") => {
+                let idx = match_bits!(opcode, "0b00xx_0010");
+                let operand = MemoryOperand::new(idx).unwrap();
+                Ok(Self::LoadAccumulatorToIndirect { operand })
+            },
             byte_permutations!("0b01xx_x110") => {
-                let idx = get_00xx_x000(opcode);
+                let idx = match_bits!(opcode, "0b01xx_x110");
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::LoadIndirectHLToRegister8 { operand })
             },
             byte_permutations!("0b00xx_x110") => {
-                let idx = get_00xx_x000(opcode);
+                let idx = match_bits!(opcode, "0b00xx_x110");
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::LoadImmediateToRegister8 { operand })
             },
             byte_permutations!("0b00xx_0001") => {
-                let idx = get_00xx_0000(opcode);
+                let idx = match_bits!(opcode, "0b00xx_0001");
                 let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
                 Ok(Self::LoadImmediateToRegister16 { operand })
             },
             _ => Err(CpuError::InvalidInstruction)
         }
     }
-}
-
-fn get_00xx_x000(byte: u8) -> u8 {
-    (byte >> 3) & 0b111
-}
-
-fn get_00xx_0000(byte: u8) -> u8 {
-    (byte >> 4) & 0b11
-}
-
-fn get_000x_x000(byte: u8) -> u8 {
-    (byte >> 3) & 0b11
-}
-
-fn get_0000_0xxx(byte: u8) -> u8 {
-    byte & 0b111
 }
 
 impl std::fmt::Display for Instruction {
@@ -211,6 +241,7 @@ impl std::fmt::Display for Instruction {
             Instruction::JumpImmediate { address } => write!(f, "jp {:#x}", address),
             Instruction::JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
             Instruction::XorRegister { operand } => write!(f, "xor {}", operand),
+            Instruction::LoadAccumulatorToIndirect { operand } => write!(f, "ld {}, a", operand),
             Instruction::LoadIndirectHLToRegister8 { operand } => write!(f, "ld {}, [hl]", operand),
             Instruction::LoadImmediateToRegister8 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
             Instruction::LoadImmediateToRegister16 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
