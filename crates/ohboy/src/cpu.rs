@@ -52,6 +52,10 @@ impl Cpu {
                     self.registers.pc_mut().set(address);
                     (MachineCycle(4), Instruction::JumpImmediate { address })
                 },
+                RawInstruction::DisableInterrupts => {
+                    self.enable_interrupts = false;
+                    (MachineCycle(1), Instruction::DisableInterrupts)
+                },
                 RawInstruction::JumpRelativeConditional { operand } => {
                     let relative = self.consume_pc_i8();
                     let machine_cycle = if self.check_condition(operand) {

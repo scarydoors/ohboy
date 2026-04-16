@@ -185,6 +185,7 @@ macro_rules! instructions {
 
 instructions!(
     Nop,
+    DisableInterrupts,
     JumpImmediate | { address: u16 },
     JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
@@ -200,6 +201,7 @@ impl RawInstruction {
         match opcode {
             0x00 => Ok(Self::Nop),
             0xC3 => Ok(Self::JumpImmediate),
+            0xF3 => Ok(Self::DisableInterrupts),
             byte_permutations!("0b1010_1xxx") => {
                 let idx = match_bits!(opcode, "0b1010_1xxx");
                 let operand = Operand3::new(idx).unwrap();
@@ -244,6 +246,7 @@ impl std::fmt::Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Instruction::Nop => write!(f, "nop"),
+            Instruction::DisableInterrupts => write!(f, "di"),
             Instruction::JumpImmediate { address } => write!(f, "jp {:#x}", address),
             Instruction::JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
             Instruction::XorRegister { operand } => write!(f, "xor {}", operand),
