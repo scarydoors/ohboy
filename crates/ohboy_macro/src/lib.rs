@@ -17,7 +17,7 @@ fn process_byte_permutations(input: syn::LitStr) -> Result<TokenStream, syn::Err
     
     let pattern = pattern
         .strip_prefix("0b")
-        .ok_or(syn::Error::new_spanned(&input, "expected pattern to start with 0b"))?;
+        .ok_or_else(|| syn::Error::new_spanned(&input, "expected pattern to start with 0b"))?;
 
     let mut permutations: Vec<String> = vec![String::new()];
 
@@ -78,7 +78,7 @@ fn process_match_bits(value: syn::Ident, pattern: syn::LitStr) -> Result<TokenSt
     
     let pattern_val = pattern_val
         .strip_prefix("0b")
-        .ok_or(syn::Error::new_spanned(&pattern, "expected pattern to start with 0b"))?;
+        .ok_or_else(|| syn::Error::new_spanned(&pattern, "expected pattern to start with 0b"))?;
 
     let (shift, mask_len) = pattern_val
         .chars()
