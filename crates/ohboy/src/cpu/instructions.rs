@@ -188,6 +188,7 @@ instructions!(
     JumpImmediate | { address: u16 },
     JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
+    DecRegister { operand: Operand3 },
     LoadAccumulatorToIndirect { operand: MemoryOperand },
     LoadIndirectHLToRegister8 { operand: Operand3 },
     LoadImmediateToRegister8 { operand: Operand3 } | { immediate: u8 },
@@ -203,6 +204,11 @@ impl RawInstruction {
                 let idx = match_bits!(opcode, "0b1010_1xxx");
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::XorRegister { operand })
+            },
+            byte_permutations!("0b00xx_x101") => {
+                let idx = match_bits!(opcode, "0b00xx_x101");
+                let operand = Operand3::new(idx).unwrap();
+                Ok(Self::DecRegister { operand })
             },
             byte_permutations!("0b0010_xx00") => {
                 let idx = match_bits!(opcode, "0b0010_xx00");
@@ -241,6 +247,7 @@ impl std::fmt::Display for Instruction {
             Instruction::JumpImmediate { address } => write!(f, "jp {:#x}", address),
             Instruction::JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
             Instruction::XorRegister { operand } => write!(f, "xor {}", operand),
+            Instruction::DecRegister { operand } => write!(f, "dec {}", operand),
             Instruction::LoadAccumulatorToIndirect { operand } => write!(f, "ld {}, a", operand),
             Instruction::LoadIndirectHLToRegister8 { operand } => write!(f, "ld {}, [hl]", operand),
             Instruction::LoadImmediateToRegister8 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),

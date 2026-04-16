@@ -15,6 +15,8 @@ pub struct Cpu {
     registers: register::Registers,
     rom: rom::Rom,
     memory: memory::Memory,
+
+    enable_interrupts: bool,
 }
 
 impl Cpu {
@@ -24,6 +26,8 @@ impl Cpu {
             memory: Memory::new(mbc),
             registers: Registers::new(),
             rom: rom,
+
+            enable_interrupts: true,
         }
     }
 
@@ -77,6 +81,42 @@ impl Cpu {
                     };
 
                     (machine_cycle, Instruction::XorRegister { operand })
+                },
+                RawInstruction::DecRegister { operand } => {
+                    let SubCarryResult { result, half_carry, .. } = match operand {
+                        Operand3::Register(r) => {
+                            let register = self.registers.get_short_register_mut(r);
+                            let result = sub_carry(register.get_u8(), 1);
+                            register.set_u8(result.result);
+
+                            result
+                        },
+                        Operand3::IndirectHL => {
+                            let address = self.registers.hl().get_u16();
+                            let result = sub_carry(self.memory.read_memory(address), 1);
+                            self.memory.write_memory(address, result.result);
+
+                            result
+                        },
+                    };
+                    
+                    self.registers.f_mut().update(|mut f| {
+                        f.insert(CpuFlagRegister::SUB_FLAG);
+                        if result == 0 {
+                            f.insert(CpuFlagRegister::ZERO_FLAG);
+                        } else {
+                            f.remove(CpuFlagRegister::ZERO_FLAG);
+                        }
+
+                        if half_carry {
+                            f.insert(CpuFlagRegister::HALF_CARRY_FLAG);
+                        } else {
+                            f.remove(CpuFlagRegister::HALF_CARRY_FLAG);
+                        }
+                        f
+                    });
+
+                    (MachineCycle(1), Instruction::DecRegister { operand })
                 },
                 RawInstruction::LoadAccumulatorToIndirect { operand } => {
                     let mut register = self.registers.get_word_register_mut(operand.register());
@@ -172,3 +212,12 @@ impl From<MachineCycle> for TimeCycle {
 }
 
 pub struct MachineCycle(usize);
+
+
+struct SubCarryResult { result: u8, carry: bool, half_carry: bool }
+fn sub_carry(a: u8, b: u8) -> SubCarryResult {
+    let (result, carry) = a.overflowing_sub(b);
+    let half_carry = (a & 0xF) < (b & 0xF);
+
+    return SubCarryResult { result, carry, half_carry }
+}
