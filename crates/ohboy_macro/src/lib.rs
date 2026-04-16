@@ -3,16 +3,16 @@ use quote::quote;
 use syn::{parse_macro_input};
 
 #[proc_macro]
-pub fn byte_pattern(input: TokenStream) -> TokenStream {
+pub fn byte_permutations(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::LitStr);
 
-    match process_byte_pattern(input) {
+    match process_byte_permutations(input) {
         Ok(t) => t,
         Err(e) => e.into_compile_error().into(),
     }
 }
 
-fn process_byte_pattern(input: syn::LitStr) -> Result<TokenStream, syn::Error> {
+fn process_byte_permutations(input: syn::LitStr) -> Result<TokenStream, syn::Error> {
     let pattern = input.value();
     
     let pattern = pattern

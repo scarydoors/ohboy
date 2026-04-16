@@ -1,5 +1,5 @@
 use crate::cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}};
-use ohboy_macro::byte_pattern;
+use ohboy_macro::byte_permutations;
 // TODO; figure out how to do the errors properly
 #[derive(Debug)]
 struct OperandTooWide;
@@ -158,27 +158,27 @@ impl RawInstruction {
         match opcode {
             0x00 => Ok(Self::Nop),
             0xC3 => Ok(Self::JumpImmediate),
-            byte_pattern!("0b1010_1xxx") => {
+            byte_permutations!("0b1010_1xxx") => {
                 let idx = get_0000_0xxx(opcode);
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::XorRegister { operand })
             },
-            byte_pattern!("0b0010_xx00") => {
+            byte_permutations!("0b0010_xx00") => {
                 let idx = get_000x_x000(opcode);
                 let operand = ConditionalOperand::new(idx).unwrap();
                 Ok(Self::JumpRelativeConditional { operand })
             },
-            byte_pattern!("0b01xx_x110") => {
+            byte_permutations!("0b01xx_x110") => {
                 let idx = get_00xx_x000(opcode);
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::LoadIndirectHLToRegister8 { operand })
             },
-            byte_pattern!("0b00xx_x110") => {
+            byte_permutations!("0b00xx_x110") => {
                 let idx = get_00xx_x000(opcode);
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::LoadImmediateToRegister8 { operand })
             },
-            byte_pattern!("0b00xx_0001") => {
+            byte_permutations!("0b00xx_0001") => {
                 let idx = get_00xx_0000(opcode);
                 let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
                 Ok(Self::LoadImmediateToRegister16 { operand })
