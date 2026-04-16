@@ -35,8 +35,7 @@ fn process_byte_permutations(input: syn::LitStr) -> Result<TokenStream, syn::Err
                     .collect();
             },
             '_' => {},
-            // TODO: fix error message haha
-            _ => return Err(syn::Error::new_spanned(input, "expected pattern to start with 0b"))
+            c => return Err(syn::Error::new_spanned(&pattern, format!("invalid character '{}' in binary literal", c)))
         }
     }
 
@@ -84,15 +83,14 @@ fn process_match_bits(value: syn::Ident, pattern: syn::LitStr) -> Result<TokenSt
         .chars()
         .rev()
         .enumerate()
-        .filter(|(_, c)| matches!(c, '_'))
+        .filter(|(_, c)| !matches!(c, '_'))
         .try_fold((None::<usize>, 0usize), |(shift, mask_len), (i, c)| {
             match c {
                 '0' | '1' => Ok((shift, mask_len)),
                 'x' | 'X' => {
                     Ok((shift.or(Some(i)), mask_len + 1))
                 },
-                // TODO: make error message correct
-                _ => return Err(syn::Error::new_spanned(&pattern, "expected pattern to start with 0b"))
+                c => Err(syn::Error::new_spanned(&pattern, format!("invalid character '{}' in binary literal", c)))
             }
         })?;
 
