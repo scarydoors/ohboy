@@ -80,24 +80,25 @@ fn process_match_bits(value: syn::Ident, pattern: syn::LitStr) -> Result<TokenSt
         .strip_prefix("0b")
         .ok_or(syn::Error::new_spanned(&pattern, "expected pattern to start with 0b"))?;
 
-    let mut first_bit_pos: Option<usize> = None;
-    let mut mask_length: usize = 0;
+    let (shift, mask_len) = pattern_val
+        .chars()
+        .rev()
+        .enumerate()
+        .filter(|(_, c)| matches!(c, '_'))
+        .try_fold((None::<usize>, 0usize), |(shift, mask_len), (i, c)| {
+            match c {
+                '0' | '1' => Ok((shift, mask_len)),
+                'x' | 'X' => {
+                    Ok((shift.or(Some(i)), mask_len + 1))
+                },
+                // TODO: make error message correct
+                _ => return Err(syn::Error::new_spanned(&pattern, "expected pattern to start with 0b"))
+            }
+        })?;
 
-    for (i, bit) in pattern_val.chars().rev().enumerate() {
-        match bit {
-            '0' | '1' => { },
-            'x' | 'X' => {
-                mask_length += 1;
-                if first_bit_pos.is_none() { first_bit_pos = Some(i) }
-            },
-            '_' => {},
-            // TODO: fix error message haha
-            _ => return Err(syn::Error::new_spanned(pattern, "expected pattern to start with 0b"))
-        }
-    }
+    let mask = syn::LitInt::new(&format!("0b{}", "1".repeat(mask_len)), Span::call_site().into());
+    // TODO: stop unwrapping here
+    let shift = shift.unwrap();
 
-    let mask = syn::LitInt::new(&format!("0b{}", "1".repeat(mask_length)), Span::call_site().into());
-    let first_bit_pos = first_bit_pos.unwrap();
-
-    Ok(quote!{ (#value >> #first_bit_pos) & #mask }.into())
+    Ok(quote!{ (#value >> #shift) & #mask }.into())
 }
