@@ -1,5 +1,5 @@
 use crate::cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}};
-use ohboy_macro::byte_permutations;
+use ohboy_macro::{byte_permutations, match_bits};
 // TODO; figure out how to do the errors properly
 #[derive(Debug)]
 struct OperandTooWide;
@@ -159,7 +159,7 @@ impl RawInstruction {
             0x00 => Ok(Self::Nop),
             0xC3 => Ok(Self::JumpImmediate),
             byte_permutations!("0b1010_1xxx") => {
-                let idx = get_0000_0xxx(opcode);
+                let idx = match_bits!(opcode, "0b1010_1xxx");
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::XorRegister { operand })
             },
