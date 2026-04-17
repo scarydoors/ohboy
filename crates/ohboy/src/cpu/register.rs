@@ -240,7 +240,7 @@ impl<T: Copy> Register<T> {
 
     pub fn update<F: Fn(T) -> T>(&mut self, f: F) -> T {
         let result = f(self.get());
-        self.set(f(self.get()));
+        self.set(result);
         result
     }
 }
