@@ -82,8 +82,8 @@ fn process_match_bits(value: syn::Ident, pattern: syn::LitStr) -> Result<TokenSt
     let (shift, mask_len) = pattern_val
         .chars()
         .rev()
+        .filter(|c| !matches!(c, '_'))
         .enumerate()
-        .filter(|(_, c)| !matches!(c, '_'))
         .try_fold((None::<usize>, 0usize), |(shift, mask_len), (i, c)| {
             match c {
                 '0' | '1' => Ok((shift, mask_len)),
