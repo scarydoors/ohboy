@@ -4,6 +4,7 @@ use crate::{cpu::{instructions::{ConditionalOperand, Instruction, Operand3, RawI
 
 //PC 0x2817 is when tiles are loaded probably
 mod register;
+mod interrupt;
 mod instructions;
 
 
