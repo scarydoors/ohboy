@@ -33,8 +33,9 @@ impl Cpu {
 
     pub fn run(&mut self) {
         loop {
+            let pc = self.registers.pc().get();
             let (m_cycles, instruction) = self.cycle();
-            println!("{}", instruction);
+            println!("{:#x}: {}", pc, instruction);
         }
     }
 
@@ -167,6 +168,7 @@ impl Cpu {
                     self.registers.get_word_register_mut(operand.register).set_u16(immediate);
                     (MachineCycle(3), Instruction::LoadImmediateToRegister16 { operand, immediate })
                 },
+                i => unimplemented!("unsupported instruction {:?}", i)
             }
         } else {
             unimplemented!("unknown opcode {:x}!", opcode)
