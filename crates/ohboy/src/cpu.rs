@@ -16,8 +16,7 @@ pub struct Cpu {
     registers: register::Registers,
     rom: rom::Rom,
     memory: memory::Memory,
-
-    enable_interrupts: bool,
+    interrupts: interrupt::Interrupts,
 }
 
 impl Cpu {
