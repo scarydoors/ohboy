@@ -1,6 +1,6 @@
 use bitflags::{Flags, bitflags};
 
-use crate::{cpu::{instructions::{ConditionalOperand, Instruction, Operand3, RawInstruction}, register::{CpuFlagRegister, Registers, WordRegisterRead, WordRegisterWrite}}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
+use crate::{cpu::{instructions::{ConditionalOperand, Instruction, Operand3, RawInstruction}, register::{CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
 //PC 0x2817 is when tiles are loaded probably
 mod register;
@@ -78,7 +78,7 @@ impl Cpu {
                     let result = self.registers.a_mut().update(|a| a ^ value);
 
                     if result == 0 {
-                        self.registers.f_mut().set(CpuFlagRegister::ZERO_FLAG);
+                        self.registers.f_mut().set(CpuFlags::ZERO);
                     }
 
                     let machine_cycle = match operand {
@@ -107,17 +107,17 @@ impl Cpu {
                     };
                     
                     self.registers.f_mut().update(|mut f| {
-                        f.insert(CpuFlagRegister::SUB_FLAG);
+                        f.insert(CpuFlags::SUB);
                         if result == 0 {
-                            f.insert(CpuFlagRegister::ZERO_FLAG);
+                            f.insert(CpuFlags::ZERO);
                         } else {
-                            f.remove(CpuFlagRegister::ZERO_FLAG);
+                            f.remove(CpuFlags::ZERO);
                         }
 
                         if half_carry {
-                            f.insert(CpuFlagRegister::HALF_CARRY_FLAG);
+                            f.insert(CpuFlags::HALF_CARRY);
                         } else {
-                            f.remove(CpuFlagRegister::HALF_CARRY_FLAG);
+                            f.remove(CpuFlags::HALF_CARRY);
                         }
                         f
                     });
@@ -179,10 +179,10 @@ impl Cpu {
     fn check_condition(&self, operand: ConditionalOperand) -> bool {
         let flags = self.registers.f().get();
         match operand {
-            ConditionalOperand::NZ => !flags.contains(CpuFlagRegister::ZERO_FLAG),
-            ConditionalOperand::Z => flags.contains(CpuFlagRegister::ZERO_FLAG),
-            ConditionalOperand::NC => !flags.contains(CpuFlagRegister::CARRY_FLAG),
-            ConditionalOperand::C => flags.contains(CpuFlagRegister::CARRY_FLAG),
+            ConditionalOperand::NZ => !flags.contains(CpuFlags::ZERO),
+            ConditionalOperand::Z => flags.contains(CpuFlags::ZERO),
+            ConditionalOperand::NC => !flags.contains(CpuFlags::CARRY),
+            ConditionalOperand::C => flags.contains(CpuFlags::CARRY),
         }
     }
 

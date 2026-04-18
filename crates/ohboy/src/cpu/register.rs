@@ -5,7 +5,7 @@ pub struct Registers {
     sp: Register<u16>,
 
     a: Register<u8>,
-    f: Register<CpuFlagRegister>,
+    f: Register<CpuFlags>,
 
     b: Register<u8>,
     c: Register<u8>,
@@ -79,7 +79,7 @@ impl Registers {
             sp: 0xFFFE.into(),
 
             a: 0x01.into(),
-            f: (CpuFlagRegister::ZERO_FLAG | CpuFlagRegister::SUB_FLAG | CpuFlagRegister::CARRY_FLAG).into(),
+            f: (CpuFlags::ZERO | CpuFlags::SUB | CpuFlags::CARRY).into(),
 
             b: 0x00.into(),
             c: 0x13.into(),
@@ -170,7 +170,7 @@ impl_register_methods!(
     sp: u16,
 
     a: u8,
-    f: CpuFlagRegister,
+    f: CpuFlags,
 
     b: u8,
     c: u8,
@@ -205,20 +205,20 @@ impl_register_pair_methods!(
     (b: u8, c: u8),
     (d: u8, e: u8),
     (h: u8, l: u8),
-    (a: u8, f: CpuFlagRegister),
+    (a: u8, f: CpuFlags),
 );
 
 bitflags! {
     #[derive(Copy, Clone)]
-    pub struct CpuFlagRegister: u8 {
+    pub struct CpuFlags: u8 {
         // Z Flag, set if result of an operation is zero.
-        const ZERO_FLAG = 1 << 7;
+        const ZERO = 1 << 7;
         // N Flag, used by DAA instruction, set if previous instruction has been a subtraction
-        const SUB_FLAG = 1 << 6;
+        const SUB = 1 << 6;
         // H Flag, used by DAA instruction, set if lower nibble of the result have carried
-        const HALF_CARRY_FLAG = 1 << 5;
+        const HALF_CARRY = 1 << 5;
         // C Flag, set if upper nibble of the result have carried
-        const CARRY_FLAG = 1 << 4;
+        const CARRY = 1 << 4;
     }
 }
 
@@ -276,15 +276,15 @@ impl ByteRegisterWrite for Register<u8> {
     }
 }
 
-impl ByteRegisterRead for Register<CpuFlagRegister> {
+impl ByteRegisterRead for Register<CpuFlags> {
     fn get_u8(&self) -> u8 {
         self.get().bits()
     }
 }
 
-impl ByteRegisterWrite for Register<CpuFlagRegister> {
+impl ByteRegisterWrite for Register<CpuFlags> {
     fn set_u8(&mut self, value: u8) {
-        self.set(CpuFlagRegister::from_bits_truncate(value));
+        self.set(CpuFlags::from_bits_truncate(value));
     }
 }
 
