@@ -6,6 +6,7 @@ mod cpu;
 mod rom;
 mod memory;
 mod mbc;
+mod ppu;
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();

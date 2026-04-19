@@ -1,11 +1,6 @@
 use bitflags::bitflags;
 use crate::cpu::register::Register;
 
-pub enum RequestedIMEState {
-    Enable,
-    Disable,
-}
-
 bitflags! {
     #[derive(Copy, Clone)]
     pub struct RequestFlags: u8 {
@@ -31,7 +26,6 @@ bitflags! {
 pub struct Interrupts {
     // interrupt master enable flag
     ime: bool,
-    ime_requested_state: Option<RequestedIMEState>,
 
     enable_flag: Register<EnableFlags>,
     request_flag: Register<RequestFlags>

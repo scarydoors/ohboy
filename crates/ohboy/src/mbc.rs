@@ -20,6 +20,15 @@ pub enum MBCType {
     HuC3,
 }
 
+pub const MBC_ROM_START: u16 = 0x0000;
+pub const MBC_ROM_BANK_0_END: u16 = 0x3FFF;
+
+pub const MBC_ROM_BANK_N_START: u16 = 0x4000;
+pub const MBC_ROM_END: u16 = 0x7FFF;
+
+pub const MBC_EXTERNAL_RAM_START: u16 = 0xA000;
+pub const MBC_EXTERNAL_RAM_END: u16 = 0xBFFF;
+
 pub type MBC = Box<dyn ReadWriteMemory>;
 
 pub fn create_mbc(rom: rom::Rom) -> MBC {

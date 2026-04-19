@@ -32,5 +32,3 @@ impl WriteMemory for RomOnly {
         todo!()
     }
 }
-
-impl ReadWriteMemory for RomOnly {}

@@ -26,8 +26,7 @@ impl Cpu {
             memory: Memory::new(mbc),
             registers: Registers::new(),
             rom: rom,
-
-            enable_interrupts: true,
+            interrupts
         }
     }
 
@@ -188,7 +187,7 @@ impl Cpu {
     fn consume_pc_u8(&mut self) -> u8 {
         let pc = self.registers.pc_mut();
         let cur_pc = pc.get();
-        pc.set(cur_pc + 1);
+        pc.set(cur_pc.wrapping_add(1));
 
         self.memory.read_memory(cur_pc)
     }
