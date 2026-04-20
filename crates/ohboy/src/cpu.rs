@@ -3,8 +3,8 @@ use bitflags::{Flags, bitflags};
 use crate::{cpu::{instructions::{ConditionalOperand, Instruction, Operand3, RawInstruction}, register::{CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
 //PC 0x2817 is when tiles are loaded probably
-mod register;
-mod interrupt;
+pub mod register;
+pub mod interrupt;
 mod instructions;
 
 

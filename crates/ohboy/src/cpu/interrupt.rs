@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use crate::cpu::register::Register;
 
 bitflags! {
     #[derive(Copy, Clone)]
@@ -22,12 +21,3 @@ bitflags! {
         const VBLANK = 1;
     }
 }
-
-pub struct Interrupts {
-    // interrupt master enable flag
-    ime: bool,
-
-    enable_flag: Register<EnableFlags>,
-    request_flag: Register<RequestFlags>
-}
-

@@ -1,4 +1,4 @@
-use crate::mbc;
+use crate::{cpu::interrupt, mbc};
 
 pub trait ReadMemory {
     fn read_memory(&self, address: u16) -> u8;
@@ -52,6 +52,9 @@ pub struct Memory {
 
     vram: VRam,
     wram: WRam,
+
+    // IO registers
+    interrupt_requests: Register<interrupt::RequestFlags>
 }
 
 impl Memory {
