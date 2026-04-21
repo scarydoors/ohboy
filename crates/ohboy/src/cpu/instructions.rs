@@ -106,14 +106,14 @@ impl std::fmt::Display for ConditionalOperand {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum MemoryOperand {
+pub enum IndirectOperand {
     BC,
     DE,
     HLInc,
     HLDec,
 }
 
-impl MemoryOperand {
+impl IndirectOperand {
     fn new(idx: u8) -> Result<Self, OperandTooWide> {
         match idx {
             0 => Ok(Self::BC),
@@ -126,20 +126,20 @@ impl MemoryOperand {
 
     pub fn register(&self) -> WordRegisterName {
         match self {
-            MemoryOperand::BC => WordRegisterName::BC,
-            MemoryOperand::DE => WordRegisterName::DE,
-            MemoryOperand::HLInc | MemoryOperand::HLDec => WordRegisterName::HL,
+            IndirectOperand::BC => WordRegisterName::BC,
+            IndirectOperand::DE => WordRegisterName::DE,
+            IndirectOperand::HLInc | IndirectOperand::HLDec => WordRegisterName::HL,
         }
     }
 }
 
-impl std::fmt::Display for MemoryOperand {
+impl std::fmt::Display for IndirectOperand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MemoryOperand::BC => write!(f, "[bc]"),
-            MemoryOperand::DE => write!(f, "[de]"),
-            MemoryOperand::HLInc => write!(f, "[hl+]"),
-            MemoryOperand::HLDec => write!(f, "[hl-]"),
+            IndirectOperand::BC => write!(f, "[bc]"),
+            IndirectOperand::DE => write!(f, "[de]"),
+            IndirectOperand::HLInc => write!(f, "[hl+]"),
+            IndirectOperand::HLDec => write!(f, "[hl-]"),
         }
     }
 }
@@ -191,7 +191,7 @@ instructions!(
     JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
     DecRegister { operand: Operand3 },
-    LoadAccumulatorToIndirect { operand: MemoryOperand },
+    LoadAccumulatorToIndirect { operand: IndirectOperand },
     LoadIndirectHLToRegister8 { operand: Operand3 },
     LoadImmediateToRegister8 { operand: Operand3 } | { immediate: u8 },
     LoadImmediateToRegister16 { operand: Operand2 } | { immediate: u16 },
@@ -220,7 +220,7 @@ impl RawInstruction {
             },
             byte_permutations!("0b00xx_0010") => {
                 let idx = match_bits!(opcode, "0b00xx_0010");
-                let operand = MemoryOperand::new(idx).unwrap();
+                let operand = IndirectOperand::new(idx).unwrap();
                 Ok(Self::LoadAccumulatorToIndirect { operand })
             },
             byte_permutations!("0b01xx_x110") => {
