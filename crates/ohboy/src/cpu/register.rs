@@ -222,7 +222,7 @@ bitflags! {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Register<T: Copy>(T); 
 
 impl<T: Copy> Register<T> {

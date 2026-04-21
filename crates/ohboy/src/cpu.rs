@@ -16,7 +16,9 @@ pub struct Cpu {
     registers: register::Registers,
     rom: rom::Rom,
     memory: memory::Memory,
-    interrupts: interrupt::Interrupts,
+
+    interrupt_master_enable: bool,
+    pending_interrupt_enable: bool,
 }
 
 impl Cpu {
@@ -26,7 +28,9 @@ impl Cpu {
             memory: Memory::new(mbc),
             registers: Registers::new(),
             rom: rom,
-            interrupts
+
+            interrupt_master_enable: false,
+            pending_interrupt_enable: false,
         }
     }
 
@@ -53,7 +57,8 @@ impl Cpu {
                     (MachineCycle(4), Instruction::JumpImmediate { address })
                 },
                 RawInstruction::DisableInterrupts => {
-                    self.enable_interrupts = false;
+                    self.interrupt_master_enable = false;
+                    self.pending_interrupt_enable = false;
                     (MachineCycle(1), Instruction::DisableInterrupts)
                 },
                 RawInstruction::JumpRelativeConditional { operand } => {

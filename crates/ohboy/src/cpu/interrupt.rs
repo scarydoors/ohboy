@@ -1,7 +1,7 @@
 use bitflags::bitflags;
 
 bitflags! {
-    #[derive(Copy, Clone)]
+    #[derive(Default, Copy, Clone)]
     pub struct RequestFlags: u8 {
         const JOYPAD = 1 << 4;
         const SERIAL = 1 << 3;
@@ -12,7 +12,7 @@ bitflags! {
 }
 
 bitflags! {
-    #[derive(Copy, Clone)]
+    #[derive(Default, Copy, Clone)]
     pub struct EnableFlags: u8 {
         const JOYPAD = 1 << 4;
         const SERIAL = 1 << 3;

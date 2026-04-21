@@ -1,4 +1,4 @@
-use crate::{cpu::interrupt, mbc};
+use crate::{cpu::{interrupt::{self, EnableFlags, RequestFlags}, register::Register}, mbc};
 
 pub trait ReadMemory {
     fn read_memory(&self, address: u16) -> u8;
@@ -46,6 +46,9 @@ type VRam = MemoryRegion<8192, 0x8000>;
 
 type WRam = MemoryRegion<8192, 0xC000>;
 
+const REQUESTED_INTERRUPTS_ADDRESS: u16 = 0xFF0F;
+const ENABLED_INTERRUPTS_ADDRESS: u16 = 0xFFFF;
+
 pub struct Memory {
     // provides rom bank and stuff
     mbc: mbc::MBC,
@@ -54,15 +57,19 @@ pub struct Memory {
     wram: WRam,
 
     // IO registers
-    interrupt_requests: Register<interrupt::RequestFlags>
+    requested_interrupts: Register<interrupt::RequestFlags>,
+    enabled_interrupts: Register<interrupt::EnableFlags>,
 }
 
 impl Memory {
     pub fn new(mbc: mbc::MBC) -> Self {
         Self {
             mbc: mbc,
-            vram: VRam::default(),
-            wram: WRam::default(),
+            vram: Default::default(),
+            wram: Default::default(),
+
+            requested_interrupts: Default::default(),
+            enabled_interrupts: Default::default()
         }
     }
 }
@@ -74,6 +81,8 @@ impl ReadMemory for Memory {
             | mbc::MBC_EXTERNAL_RAM_START..=mbc::MBC_EXTERNAL_RAM_END  => self.mbc.read_memory(address),
             VRam::START..=VRam::END => self.vram.read_memory(address),
             WRam::START..=WRam::END => self.wram.read_memory(address),
+            REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.get().bits(),
+            ENABLED_INTERRUPTS_ADDRESS => self.enabled_interrupts.get().bits(),
             _ => unimplemented!("address: {:x}", address)
         }
     }
@@ -86,6 +95,8 @@ impl WriteMemory for Memory {
             | mbc::MBC_EXTERNAL_RAM_START..=mbc::MBC_EXTERNAL_RAM_END  => self.mbc.write_memory(address, value),
             VRam::START..=VRam::END => self.vram.write_memory(address, value),
             WRam::START..=WRam::END => self.wram.write_memory(address, value),
+            REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.set(RequestFlags::from_bits_truncate(value)),
+            ENABLED_INTERRUPTS_ADDRESS => self.enabled_interrupts.set(EnableFlags::from_bits_truncate(value)),
             _ => unimplemented!("address: {:x}", address)
         }
     }
