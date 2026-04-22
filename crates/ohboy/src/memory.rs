@@ -1,4 +1,6 @@
-use crate::{cpu::{interrupt::{self, EnableFlags, RequestFlags}, register::Register}, mbc};
+use bitflags::bitflags;
+
+use crate::{cpu::{interrupt::{self, EnableFlags, RequestFlags}, register::Register}, mbc, ppu::{LCDControlFlags, LCDStatusFlags}};
 
 pub trait ReadMemory {
     fn read_memory(&self, address: u16) -> u8;
@@ -51,10 +53,18 @@ type VRam = MemoryRegion<8192, 0x8000, 0x9FFF>;
 type WRam = MemoryRegion<8192, 0xC000, 0xDFFF>;
 
 const REQUESTED_INTERRUPTS_ADDRESS: u16 = 0xFF0F;
-const ENABLED_INTERRUPTS_ADDRESS: u16 = 0xFFFF;
 
+const SERIAL_TRANSFER_DATA_ADDRESS: u16 = 0xFF01;
+const SERIAL_TRANSFER_CONTROL_ADDRESS: u16 = 0xFF02;
+
+const LCD_CONTROL_ADDRESS: u16 = 0xFF40;
+const LCD_STATUS_ADDRESS: u16 = 0xFF41;
 const SCREEN_Y_ADDRESS: u16 = 0xFF42;
 const SCREEN_X_ADDRESS: u16 = 0xFF43;
+
+type HRam = MemoryRegion<127, 0xFF80, 0xFFFE>;
+
+const ENABLED_INTERRUPTS_ADDRESS: u16 = 0xFFFF;
 
 pub struct Memory {
     // provides rom bank and stuff
@@ -65,10 +75,17 @@ pub struct Memory {
 
     // IO registers
     requested_interrupts: Register<interrupt::RequestFlags>,
-    enabled_interrupts: Register<interrupt::EnableFlags>,
 
+    serial_transfer_data: Register<u8>,
+    serial_transfer_control: Register<SerialControlFlags>,
+
+    lcd_control: Register<LCDControlFlags>,
+    lcd_status: Register<LCDStatusFlags>,
     screen_y: Register<u8>,
-    screen_x: Register<u8>
+    screen_x: Register<u8>,
+
+    hram: HRam,
+    enabled_interrupts: Register<interrupt::EnableFlags>,
 }
 
 impl Memory {
@@ -77,13 +94,19 @@ impl Memory {
             mbc: mbc,
             vram: Default::default(),
             wram: Default::default(),
-            hram: 
+            hram: Default::default(),
 
             requested_interrupts: Default::default(),
-            enabled_interrupts: Default::default(),
 
+            serial_transfer_data: Default::default(),
+            serial_transfer_control: Default::default(),
+
+            lcd_control: Default::default(),
+            lcd_status: Default::default(),
             screen_y: Default::default(),
-            screen_x: Default::default()
+            screen_x: Default::default(),
+
+            enabled_interrupts: Default::default(),
         }
     }
 }
@@ -96,9 +119,14 @@ impl ReadMemory for Memory {
             VRam::START..=VRam::END => self.vram.read_memory(address),
             WRam::START..=WRam::END => self.wram.read_memory(address),
             REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.get().bits(),
-            ENABLED_INTERRUPTS_ADDRESS => self.enabled_interrupts.get().bits(),
+            SERIAL_TRANSFER_DATA_ADDRESS => self.serial_transfer_data.get(),
+            SERIAL_TRANSFER_CONTROL_ADDRESS => self.serial_transfer_control.get().bits(),
+            LCD_CONTROL_ADDRESS => self.lcd_control.get().bits(),
+            LCD_STATUS_ADDRESS => self.lcd_status.get().bits(),
             SCREEN_Y_ADDRESS => self.screen_y.get(),
             SCREEN_X_ADDRESS => self.screen_x.get(),
+            HRam::START..=HRam::END => self.hram.read_memory(address),
+            ENABLED_INTERRUPTS_ADDRESS => self.enabled_interrupts.get().bits(),
             _ => unimplemented!("address: {:x}", address)
         }
     }
@@ -112,10 +140,23 @@ impl WriteMemory for Memory {
             VRam::START..=VRam::END => self.vram.write_memory(address, value),
             WRam::START..=WRam::END => self.wram.write_memory(address, value),
             REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.set(RequestFlags::from_bits_truncate(value)),
-            ENABLED_INTERRUPTS_ADDRESS => self.enabled_interrupts.set(EnableFlags::from_bits_truncate(value)),
+            SERIAL_TRANSFER_DATA_ADDRESS => self.serial_transfer_data.set(value),
+            SERIAL_TRANSFER_CONTROL_ADDRESS => self.serial_transfer_control.set(SerialControlFlags::from_bits_truncate(value)),
+            LCD_CONTROL_ADDRESS => self.lcd_control.set(LCDControlFlags::from_bits_truncate(value)),
+            LCD_STATUS_ADDRESS => self.lcd_status.set(LCDStatusFlags::from_bits_truncate(value)),
             SCREEN_Y_ADDRESS => self.screen_y.set(value),
             SCREEN_X_ADDRESS => self.screen_x.set(value),
+            HRam::START..=HRam::END => self.hram.write_memory(address, value),
+            ENABLED_INTERRUPTS_ADDRESS => self.enabled_interrupts.set(EnableFlags::from_bits_truncate(value)),
             _ => unimplemented!("address: {:x}", address)
         }
+    }
+}
+
+bitflags! {
+    #[derive(Default, Clone, Copy)]
+    pub struct SerialControlFlags: u8 {
+        const TRANSFER_ENABLE = 1 << 7;
+        const CLOCK_SELECT = 1;
     }
 }
