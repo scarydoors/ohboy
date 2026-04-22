@@ -12,38 +12,43 @@ pub trait ReadWriteMemory: ReadMemory + WriteMemory {}
 
 impl<T: ReadMemory + WriteMemory> ReadWriteMemory for T {}
 
-struct MemoryRegion<const N: usize, const START: u16>([u8; N]);
+struct MemoryRegion<const N: usize, const START: u16, const END: u16>([u8; N]);
 
-impl<const N: usize, const START: u16> MemoryRegion<N, START> {
-    const SIZE: usize = N;
+impl<const N: usize, const START: u16, const END: u16> MemoryRegion<N, START, END> {
+    const SIZE: usize = {
+        assert!(END >= START, "invalid region: END must be >= START");
+        assert!(N == END as usize - START as usize + 1, "N must be equal to number of addresses in START..=END");
+        N
+    };
     const START: u16 = START;
-    const END: u16 = START + (Self::SIZE as u16) - 1;
+    const END: u16 = END;
 
     fn address_to_idx(address: u16) -> usize {
+        debug_assert!((START..=END).contains(&address), "address out of region bounds");
         (address - Self::START) as usize
     }
 }
 
-impl<const N: usize, const START: u16> ReadMemory for MemoryRegion<N, START> {
+impl<const N: usize, const START: u16, const END: u16> ReadMemory for MemoryRegion<N, START, END> {
     fn read_memory(&self, address: u16) -> u8 {
         self.0[Self::address_to_idx(address)]
     }
 }
 
-impl<const N: usize, const START: u16> WriteMemory for MemoryRegion<N, START> {
+impl<const N: usize, const START: u16, const END: u16> WriteMemory for MemoryRegion<N, START, END> {
     fn write_memory(&mut self, address: u16, value: u8) {
         self.0[Self::address_to_idx(address)] = value;
     }
 }
 
-impl<const N: usize, const START: u16> Default for MemoryRegion<N, START> {
+impl<const N: usize, const START: u16, const END: u16> Default for MemoryRegion<N, START, END> {
     fn default() -> Self {
         Self([0; N])
     }
 }
 
-type VRam = MemoryRegion<8192, 0x8000>;
-type WRam = MemoryRegion<8192, 0xC000>;
+type VRam = MemoryRegion<8192, 0x8000, 0x9FFF>;
+type WRam = MemoryRegion<8192, 0xC000, 0xDFFF>;
 
 const REQUESTED_INTERRUPTS_ADDRESS: u16 = 0xFF0F;
 const ENABLED_INTERRUPTS_ADDRESS: u16 = 0xFFFF;
