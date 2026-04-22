@@ -130,12 +130,12 @@ impl Cpu {
                 RawInstruction::LoadAccumulatorToIndirect { operand } => {
                     let mut register = self.registers.get_word_register_mut(operand.register());
                     let address = match operand {
-                        instructions::MemoryOperand::HLInc => {
+                        instructions::IndirectOperand::HLInc => {
                             let address = register.get_u16();
                             register.update_u16(&|hl| hl + 1);
                             address
                         },
-                        instructions::MemoryOperand::HLDec => {
+                        instructions::IndirectOperand::HLDec => {
                             let address = register.get_u16();
                             register.update_u16(&|hl| hl - 1);
                             address
@@ -171,6 +171,14 @@ impl Cpu {
                     let immediate = self.consume_pc_u16();
                     self.registers.get_word_register_mut(operand.register).set_u16(immediate);
                     (MachineCycle(3), Instruction::LoadImmediateToRegister16 { operand, immediate })
+                },
+                RawInstruction::LoadAccumulatorToHighMemory => {
+                    let immediate = self.consume_pc_u8();
+                    let address = 0xFF00 | (immediate as u16);
+
+                    self.memory.write_memory(address, self.registers.a().get());
+
+                    (MachineCycle(3), Instruction::LoadAccumulatorToHighMemory { immediate })
                 },
                 i => unimplemented!("unsupported instruction {:?}", i)
             }

@@ -195,6 +195,7 @@ instructions!(
     LoadIndirectHLToRegister8 { operand: Operand3 },
     LoadImmediateToRegister8 { operand: Operand3 } | { immediate: u8 },
     LoadImmediateToRegister16 { operand: Operand2 } | { immediate: u16 },
+    LoadAccumulatorToHighMemory | { immediate: u8 },
 );
 
 impl RawInstruction {
@@ -242,6 +243,9 @@ impl RawInstruction {
                 let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
                 Ok(Self::LoadImmediateToRegister16 { operand })
             },
+            0xE0 => {
+                Ok(Self::LoadAccumulatorToHighMemory)
+            },
             _ => Err(CpuError::InvalidInstruction)
         }
     }
@@ -261,6 +265,7 @@ impl std::fmt::Display for Instruction {
             Instruction::LoadIndirectHLToRegister8 { operand } => write!(f, "ld {}, [hl]", operand),
             Instruction::LoadImmediateToRegister8 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
             Instruction::LoadImmediateToRegister16 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
+            Instruction::LoadAccumulatorToHighMemory { immediate } => write!(f, "ldh {:#x}, a", immediate),
         }
     }
 }
