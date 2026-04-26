@@ -1,4 +1,4 @@
-use bitflags::bitflags;
+use bitflags::{Flags, bitflags};
 
 pub struct Registers {
     pc: Register<u16>,
@@ -242,6 +242,12 @@ impl<T: Copy> Register<T> {
         let result = f(self.get());
         self.set(result);
         result
+    }
+}
+
+impl<T: Copy + Flags> Register<T> {
+    pub fn from_bits_retain(bits: T::Bits) -> Self {
+        Self(T::from_bits_retain(bits))
     }
 }
 

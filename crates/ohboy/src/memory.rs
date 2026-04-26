@@ -98,13 +98,13 @@ impl Memory {
             wram: Default::default(),
             hram: Default::default(),
 
-            requested_interrupts: Default::default(),
+            requested_interrupts: Register::from_bits_retain(0xE1),
 
             serial_transfer_data: Default::default(),
-            serial_transfer_control: Default::default(),
+            serial_transfer_control: Register::from_bits_retain(0x7E),
 
-            lcd_control: Default::default(),
-            lcd_status: Default::default(),
+            lcd_control: Register::from_bits_retain(0x91),
+            lcd_status: Register::from_bits_retain(0x85),
             lcd_y: Default::default(),
             screen_y: Default::default(),
             screen_x: Default::default(),
