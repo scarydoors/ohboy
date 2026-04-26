@@ -59,6 +59,7 @@ const SERIAL_TRANSFER_CONTROL_ADDRESS: u16 = 0xFF02;
 
 const LCD_CONTROL_ADDRESS: u16 = 0xFF40;
 const LCD_STATUS_ADDRESS: u16 = 0xFF41;
+const LCD_Y_ADDRESS: u16 = 0xFF44;
 const SCREEN_Y_ADDRESS: u16 = 0xFF42;
 const SCREEN_X_ADDRESS: u16 = 0xFF43;
 
@@ -81,6 +82,7 @@ pub struct Memory {
 
     lcd_control: Register<LCDControlFlags>,
     lcd_status: Register<LCDStatusFlags>,
+    lcd_y: Register<u8>,
     screen_y: Register<u8>,
     screen_x: Register<u8>,
 
@@ -103,6 +105,7 @@ impl Memory {
 
             lcd_control: Default::default(),
             lcd_status: Default::default(),
+            lcd_y: Default::default(),
             screen_y: Default::default(),
             screen_x: Default::default(),
 
@@ -123,6 +126,7 @@ impl ReadMemory for Memory {
             SERIAL_TRANSFER_CONTROL_ADDRESS => self.serial_transfer_control.get().bits(),
             LCD_CONTROL_ADDRESS => self.lcd_control.get().bits(),
             LCD_STATUS_ADDRESS => self.lcd_status.get().bits(),
+            LCD_Y_ADDRESS => self.lcd_y.get(),
             SCREEN_Y_ADDRESS => self.screen_y.get(),
             SCREEN_X_ADDRESS => self.screen_x.get(),
             HRam::START..=HRam::END => self.hram.read_memory(address),

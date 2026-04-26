@@ -111,17 +111,8 @@ impl Cpu {
                     
                     self.registers.f_mut().update(|mut f| {
                         f.insert(CpuFlags::SUB);
-                        if result == 0 {
-                            f.insert(CpuFlags::ZERO);
-                        } else {
-                            f.remove(CpuFlags::ZERO);
-                        }
-
-                        if half_carry {
-                            f.insert(CpuFlags::HALF_CARRY);
-                        } else {
-                            f.remove(CpuFlags::HALF_CARRY);
-                        }
+                        f.set(CpuFlags::ZERO, result == 0);
+                        f.set(CpuFlags::HALF_CARRY, half_carry);
                         f
                     });
 
@@ -174,12 +165,32 @@ impl Cpu {
                 },
                 RawInstruction::LoadAccumulatorToHighMemory => {
                     let immediate = self.consume_pc_u8();
-                    let address = 0xFF00 | (immediate as u16);
 
-                    self.memory.write_memory(address, self.registers.a().get());
+                    self.memory.write_memory(high_address(immediate), self.registers.a().get());
 
                     (MachineCycle(3), Instruction::LoadAccumulatorToHighMemory { immediate })
                 },
+                RawInstruction::LoadHighMemoryToAccumulator => {
+                    let immediate = self.consume_pc_u8();
+
+                    self.registers.a_mut().set(self.memory.read_memory(high_address(immediate)));
+                    (MachineCycle(3), Instruction::LoadHighMemoryToAccumulator { immediate })
+                },
+                RawInstruction::CompareImmediate => {
+                    let immediate = self.consume_pc_u8();
+
+                    let SubCarryResult { result, carry, half_carry }= sub_carry(self.registers.a().get(), immediate);
+
+                    self.registers.f_mut().update(|mut f| {
+                        f.insert(CpuFlags::SUB);
+                        f.set(CpuFlags::ZERO, result == 0);
+                        f.set(CpuFlags::HALF_CARRY, half_carry);
+                        f.set(CpuFlags::CARRY, carry);
+                        f
+                    });
+
+                    (MachineCycle(2), Instruction::CompareImmediate { immediate })
+                }
                 i => unimplemented!("unsupported instruction {:?}", i)
             }
         } else {
@@ -238,4 +249,8 @@ fn sub_carry(a: u8, b: u8) -> SubCarryResult {
     let half_carry = (a & 0xF) < (b & 0xF);
 
     return SubCarryResult { result, carry, half_carry }
+}
+
+fn high_address(low: u8) -> u16 {
+    0xFF00 | (low as u16)
 }

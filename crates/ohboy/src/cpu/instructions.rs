@@ -196,6 +196,8 @@ instructions!(
     LoadImmediateToRegister8 { operand: Operand3 } | { immediate: u8 },
     LoadImmediateToRegister16 { operand: Operand2 } | { immediate: u16 },
     LoadAccumulatorToHighMemory | { immediate: u8 },
+    LoadHighMemoryToAccumulator | { immediate: u8 },
+    CompareImmediate | { immediate: u8 },
 );
 
 impl RawInstruction {
@@ -246,6 +248,12 @@ impl RawInstruction {
             0xE0 => {
                 Ok(Self::LoadAccumulatorToHighMemory)
             },
+            0xF0 => {
+                Ok(Self::LoadHighMemoryToAccumulator)
+            },
+            0xFE => {
+                Ok(Self::CompareImmediate)
+            },
             _ => Err(CpuError::InvalidInstruction)
         }
     }
@@ -266,6 +274,8 @@ impl std::fmt::Display for Instruction {
             Instruction::LoadImmediateToRegister8 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
             Instruction::LoadImmediateToRegister16 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
             Instruction::LoadAccumulatorToHighMemory { immediate } => write!(f, "ldh {:#x}, a", immediate),
+            Instruction::LoadHighMemoryToAccumulator { immediate } => write!(f, "ldh a, {:#x}", immediate),
+            Instruction::CompareImmediate { immediate } => write!(f, "cp {:#x}", immediate),
         }
     }
 }
