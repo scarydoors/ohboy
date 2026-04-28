@@ -6,9 +6,9 @@ pub struct RomOnly {
 }
 
 impl RomOnly {
-    pub fn new(rom: rom::Rom) -> Self {
+    pub fn new(rom_data: Vec<u8>) -> Self {
         Self {
-            rom_data: rom.data
+            rom_data
         }
     }
 }

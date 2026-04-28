@@ -31,10 +31,10 @@ pub const MBC_EXTERNAL_RAM_END: u16 = 0xBFFF;
 
 pub type MBC = Box<dyn ReadWriteMemory>;
 
-pub fn create_mbc(rom: rom::Rom) -> MBC {
+pub fn create_mbc(rom: &rom::Rom) -> MBC {
     let cartridge_type = rom.cartridge_type();
     match cartridge_type.mbc_type {
-        MBCType::RomOnly => Box::new(RomOnly::new(rom)),
+        MBCType::RomOnly => Box::new(RomOnly::new(rom.data.clone())),
         _ => unimplemented!("unsupported mbc type for create_mbc"),
     }
 }

@@ -1,12 +1,13 @@
 use std::{env, fs::{self}, path, process::ExitCode};
 
-use crate::{cpu::Cpu, rom::Rom};
+use crate::{cpu::Cpu, emulator::Emulator, rom::Rom};
 
 mod cpu;
 mod rom;
 mod memory;
 mod mbc;
 mod ppu;
+mod emulator;
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
@@ -27,8 +28,10 @@ fn main() -> ExitCode {
     println!("SRAM size: {}KiB", rom.ram_size());
     println!("MBC type: {:?}", rom.cartridge_type());
 
-    let mut cpu = Cpu::new(rom);
-    cpu.run();
+    let mut emulator = Emulator::new(&rom);
+    loop {
+        emulator.run_frame();
+    }
 
     ExitCode::SUCCESS
 }

@@ -1,6 +1,6 @@
 use bitflags::{Flags, bitflags};
 
-use crate::{cpu::{instructions::{ConditionalOperand, Instruction, Operand3, RawInstruction}, register::{CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
+use crate::{cpu::{instructions::{ConditionalOperand, Instruction, Operand3, RawInstruction}, register::{CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, emulator::MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
 //PC 0x2817 is when tiles are loaded probably
 pub mod register;
@@ -13,45 +13,31 @@ pub enum CpuError {
 }
 
 pub struct Cpu {
-    registers: register::Registers,
-    rom: rom::Rom,
-    memory: memory::Memory,
+    pub registers: register::Registers,
 
     interrupt_master_enable: bool,
     pending_interrupt_enable: bool,
 }
 
 impl Cpu {
-    pub fn new(rom: rom::Rom) -> Self {
-        let mbc = mbc::create_mbc(rom.clone());
+    pub fn new() -> Self {
         Self {
-            memory: Memory::new(mbc),
             registers: Registers::new(),
-            rom: rom,
-
             interrupt_master_enable: false,
             pending_interrupt_enable: false,
         }
     }
 
-    pub fn run(&mut self) {
-        loop {
-            let pc = self.registers.pc().get();
-            let (m_cycles, instruction) = self.cycle();
-            println!("{:#x}: {}", pc, instruction);
-        }
-    }
-
-    pub fn cycle(&mut self) -> (MachineCycle, Instruction) {
+    pub fn cycle(&mut self, memory: &mut Memory) -> (MachineCycle, Instruction) {
         //println!("reading opcode at {:x}", self.registers.pc().get());
-        let opcode = self.consume_pc_u8();
+        let opcode = self.consume_pc_u8(memory);
         if let Ok(i) = RawInstruction::new(opcode) {
             match i {
                 RawInstruction::Nop => {
                     (MachineCycle(1), Instruction::Nop)
                 },
                 RawInstruction::JumpImmediate => {
-                    let address = self.consume_pc_u16();
+                    let address = self.consume_pc_u16(memory);
 
                     self.registers.pc_mut().set(address);
                     (MachineCycle(4), Instruction::JumpImmediate { address })
@@ -62,7 +48,7 @@ impl Cpu {
                     (MachineCycle(1), Instruction::DisableInterrupts)
                 },
                 RawInstruction::JumpRelativeConditional { operand } => {
-                    let relative = self.consume_pc_i8();
+                    let relative = self.consume_pc_i8(memory);
                     let machine_cycle = if self.check_condition(operand) {
                         self.registers.pc_mut().update(|pc| pc.wrapping_add_signed(relative as i16));
                         MachineCycle(3)
@@ -75,7 +61,7 @@ impl Cpu {
                 RawInstruction::XorRegister { operand } => {
                     let value = match operand {
                         Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
-                        Operand3::IndirectHL => self.memory.read_memory(self.registers.hl().get_u16().into()),
+                        Operand3::IndirectHL => memory.read_memory(self.registers.hl().get_u16().into()),
                     };
 
                     let result = self.registers.a_mut().update(|a| a ^ value);
@@ -102,8 +88,8 @@ impl Cpu {
                         },
                         Operand3::IndirectHL => {
                             let address = self.registers.hl().get_u16();
-                            let result = sub_carry(self.memory.read_memory(address), 1);
-                            self.memory.write_memory(address, result.result);
+                            let result = sub_carry(memory.read_memory(address), 1);
+                            memory.write_memory(address, result.result);
 
                             result
                         },
@@ -134,50 +120,50 @@ impl Cpu {
                         _ => register.get_u16(),
                     };
                     let a = self.registers.a().get();
-                    self.memory.write_memory(address, a);
+                    memory.write_memory(address, a);
                     (MachineCycle(2), Instruction::LoadAccumulatorToIndirect { operand })
                 },
                 RawInstruction::LoadIndirectHLToRegister8 { operand } => {
                     let address = self.registers.hl().get_u16();
-                    let val = self.memory.read_memory(address);
+                    let val = memory.read_memory(address);
                     match operand {
                         Operand3::Register(r) => self.registers.get_short_register_mut(r).set_u8(val),
-                        Operand3::IndirectHL => self.memory.write_memory(address, val),
+                        Operand3::IndirectHL => memory.write_memory(address, val),
                     };
 
                     (MachineCycle(2), Instruction::LoadIndirectHLToRegister8 { operand })
                 },
                 RawInstruction::LoadImmediateToRegister8 { operand } => {
-                    let immediate = self.consume_pc_u8();
+                    let immediate = self.consume_pc_u8(memory);
                     match operand {
                         Operand3::Register(r) => self.registers.get_short_register_mut(r).set_u8(immediate),
                         Operand3::IndirectHL => {
                             let address = self.registers.hl().get_u16();
-                            self.memory.write_memory(address, immediate);
+                            memory.write_memory(address, immediate);
                         }
                     }
                     (MachineCycle(2), Instruction::LoadImmediateToRegister8 { operand, immediate })
                 },
                 RawInstruction::LoadImmediateToRegister16 { operand } => {
-                    let immediate = self.consume_pc_u16();
+                    let immediate = self.consume_pc_u16(memory);
                     self.registers.get_word_register_mut(operand.register).set_u16(immediate);
                     (MachineCycle(3), Instruction::LoadImmediateToRegister16 { operand, immediate })
                 },
                 RawInstruction::LoadAccumulatorToHighMemory => {
-                    let immediate = self.consume_pc_u8();
+                    let immediate = self.consume_pc_u8(memory);
 
-                    self.memory.write_memory(high_address(immediate), self.registers.a().get());
+                    memory.write_memory(high_address(immediate), self.registers.a().get());
 
                     (MachineCycle(3), Instruction::LoadAccumulatorToHighMemory { immediate })
                 },
                 RawInstruction::LoadHighMemoryToAccumulator => {
-                    let immediate = self.consume_pc_u8();
+                    let immediate = self.consume_pc_u8(memory);
 
-                    self.registers.a_mut().set(self.memory.read_memory(high_address(immediate)));
+                    self.registers.a_mut().set(memory.read_memory(high_address(immediate)));
                     (MachineCycle(3), Instruction::LoadHighMemoryToAccumulator { immediate })
                 },
                 RawInstruction::CompareImmediate => {
-                    let immediate = self.consume_pc_u8();
+                    let immediate = self.consume_pc_u8(memory);
 
                     let SubCarryResult { result, carry, half_carry }= sub_carry(self.registers.a().get(), immediate);
 
@@ -208,39 +194,29 @@ impl Cpu {
         }
     }
 
-    fn consume_pc_u8(&mut self) -> u8 {
+    fn consume_pc_u8(&mut self, memory: &mut Memory) -> u8 {
         let pc = self.registers.pc_mut();
         let cur_pc = pc.get();
         pc.set(cur_pc.wrapping_add(1));
 
-        self.memory.read_memory(cur_pc)
+        memory.read_memory(cur_pc)
     }
 
-    fn consume_pc_u16(&mut self) -> u16 {
-        let lsb = self.consume_pc_u8();
-        let msb = self.consume_pc_u8();
+    fn consume_pc_u16(&mut self, memory: &mut Memory) -> u16 {
+        let lsb = self.consume_pc_u8(memory);
+        let msb = self.consume_pc_u8(memory);
 
         u16_le(lsb, msb)
     }
 
-    fn consume_pc_i8(&mut self) -> i8 {
-        self.consume_pc_u8() as i8
+    fn consume_pc_i8(&mut self, memory: &mut Memory) -> i8 {
+        self.consume_pc_u8(memory) as i8
     }
 }
 
 fn u16_le(lsb: u8, msb: u8) -> u16 {
     ((msb as u16) << 8) | lsb as u16
 }
-
-pub struct TimeCycle(usize);
-
-impl From<MachineCycle> for TimeCycle {
-    fn from(value: MachineCycle) -> Self {
-        Self(value.0 * 4)
-    }
-}
-
-pub struct MachineCycle(usize);
 
 
 struct SubCarryResult { result: u8, carry: bool, half_carry: bool }

@@ -1,5 +1,7 @@
 use bitflags::bitflags;
 
+use crate::{emulator::TimeCycle, memory::Memory};
+
 bitflags! {
     #[derive(Default, Copy, Clone)]
     pub struct LCDControlFlags: u8 {
@@ -25,3 +27,26 @@ bitflags! {
         const PPUMode = 0b11;
     }
 }
+
+enum PPUMode {
+}
+
+const FRAMEBUFFER_WIDTH: usize = 160;
+const FRAMEBUFFER_HEIGHT: usize = 144;
+
+pub struct Ppu {
+    pub framebuffer: Vec<u8>
+}
+
+impl Ppu {
+    pub fn new() -> Self {
+        Self { 
+            framebuffer: Vec::with_capacity(FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT),
+        }
+    }
+
+    pub fn step(&mut self, memory: &Memory, steps: TimeCycle) -> bool {
+        false
+    }
+}
+
