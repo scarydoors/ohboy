@@ -191,6 +191,7 @@ impl Cpu {
                 i => unimplemented!("unsupported instruction {:?}", i)
             }
         } else {
+            panic!("{:?}", memory.vram);
             unimplemented!("unknown opcode {:x}!", opcode)
         }
     }
