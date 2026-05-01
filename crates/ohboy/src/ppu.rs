@@ -87,7 +87,6 @@ impl Ppu {
                     // mode 0
                 },
                 456 => {
-                    println!("current ly: {}", ly.get());
                     ly.update(|ly| ly + 1);
                 }
                 _ => {}

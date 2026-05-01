@@ -83,7 +83,7 @@ pub struct Memory {
 
     pub vram: VRam,
     wram: WRam,
-    oam: Oam,
+    pub oam: Oam,
 
     // IO registers
     requested_interrupts: Register<interrupt::RequestFlags>,
