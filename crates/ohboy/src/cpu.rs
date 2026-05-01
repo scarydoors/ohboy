@@ -30,6 +30,9 @@ impl Cpu {
 
     pub fn cycle(&mut self, memory: &mut Memory) -> (MachineCycle, Instruction) {
         //println!("reading opcode at {:x}", self.registers.pc().get());
+        if self.registers.pc().get() == 0x0fe2 {
+            panic!("should have tiles");
+        }
         let opcode = self.consume_pc_u8(memory);
         if let Ok(i) = RawInstruction::new(opcode) {
             match i {
@@ -156,6 +159,14 @@ impl Cpu {
 
                     (MachineCycle(3), Instruction::LoadAccumulatorToHighMemory { immediate })
                 },
+                RawInstruction::LoadAccumulatorToMemory => {
+                    let immediate = self.consume_pc_u16(memory);
+
+                    let a = self.registers.a().get();
+                    memory.write_memory(immediate, a);
+
+                    (MachineCycle(4), Instruction::LoadAccumulatorToMemory { immediate })
+                },
                 RawInstruction::LoadHighMemoryToAccumulator => {
                     let immediate = self.consume_pc_u8(memory);
 
@@ -164,8 +175,8 @@ impl Cpu {
                 },
                 RawInstruction::CompareImmediate => {
                     let immediate = self.consume_pc_u8(memory);
-
-                    let SubCarryResult { result, carry, half_carry }= sub_carry(self.registers.a().get(), immediate);
+                    let a = self.registers.a().get();
+                    let SubCarryResult { result, carry, half_carry } = sub_carry(a, immediate);
 
                     self.registers.f_mut().update(|mut f| {
                         f.insert(CpuFlags::SUB);

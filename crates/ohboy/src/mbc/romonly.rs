@@ -22,13 +22,12 @@ impl ReadMemory for RomOnly {
             0xA000..=0xBFFF => {
                 todo!("external ram")
             },
-            _ => unimplemented!()
+            addr => unimplemented!("{}", addr)
         }
     }
 }
 
 impl WriteMemory for RomOnly {
     fn write_memory(&mut self, address: u16, value: u8) {
-        todo!()
     }
 }

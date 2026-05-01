@@ -20,10 +20,14 @@ impl Emulator {
     }
 
     pub fn run_frame(&mut self) {
-        let pc = self.cpu.registers.pc().get();
-        let (machine_cycle, instruction) = self.cpu.cycle(&mut self.memory);
-        println!("{:#x}: {}", pc, instruction);
-        self.ppu.step(&mut self.memory, machine_cycle.into());
+        loop {
+            let pc = self.cpu.registers.pc().get();
+            let (machine_cycle, instruction) = self.cpu.cycle(&mut self.memory);
+            println!("{:#x}: {}", pc, instruction);
+            if self.ppu.step(&mut self.memory, machine_cycle.into()) {
+                return
+            }
+        }
     }
 }
 
