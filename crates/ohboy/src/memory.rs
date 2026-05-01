@@ -14,7 +14,8 @@ pub trait ReadWriteMemory: ReadMemory + WriteMemory {}
 
 impl<T: ReadMemory + WriteMemory> ReadWriteMemory for T {}
 
-struct MemoryRegion<const N: usize, const START: u16, const END: u16>([u8; N]);
+#[derive(Debug)]
+pub struct MemoryRegion<const N: usize, const START: u16, const END: u16>([u8; N]);
 
 impl<const N: usize, const START: u16, const END: u16> MemoryRegion<N, START, END> {
     const SIZE: usize = {
@@ -49,9 +50,9 @@ impl<const N: usize, const START: u16, const END: u16> Default for MemoryRegion<
     }
 }
 
-type VRam = MemoryRegion<8192, 0x8000, 0x9FFF>;
-type WRam = MemoryRegion<8192, 0xC000, 0xDFFF>;
-type Oam = MemoryRegion<160, 0xFE00, 0xFE9F>;
+pub type VRam = MemoryRegion<8192, 0x8000, 0x9FFF>;
+pub type WRam = MemoryRegion<8192, 0xC000, 0xDFFF>;
+pub type Oam = MemoryRegion<160, 0xFE00, 0xFE9F>;
 const UNUSABLE_START_ADDRESS: u16 = 0xFE00;
 const UNUSABLE_END_ADDRESS: u16 = 0xFEFF;
 
@@ -72,7 +73,7 @@ const BG_PALETTE_ADDRESS: u16 = 0xFF47;
 const OBJ_PALETTE_0_ADDRESS: u16 = 0xFF48;
 const OBJ_PALETTE_1_ADDRESS: u16 = 0xFF49;
 
-type HRam = MemoryRegion<127, 0xFF80, 0xFFFE>;
+pub type HRam = MemoryRegion<127, 0xFF80, 0xFFFE>;
 
 const ENABLED_INTERRUPTS_ADDRESS: u16 = 0xFFFF;
 
@@ -80,7 +81,7 @@ pub struct Memory {
     // provides rom bank and stuff
     mbc: mbc::MBC,
 
-    vram: VRam,
+    pub vram: VRam,
     wram: WRam,
     oam: Oam,
 
@@ -99,7 +100,7 @@ pub struct Memory {
     pub obj_palette0: Register<u8>,
     pub obj_palette1: Register<u8>,
 
-    hram: HRam,
+    pub hram: HRam,
     enabled_interrupts: Register<interrupt::EnableFlags>,
 }
 
