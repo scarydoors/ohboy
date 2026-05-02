@@ -30,7 +30,7 @@ impl Cpu {
 
     pub fn cycle(&mut self, memory: &mut Memory) -> (MachineCycle, Instruction) {
         //println!("reading opcode at {:x}", self.registers.pc().get());
-        if self.registers.pc().get() == 0x0fe2 {
+        if self.registers.pc().get() == 0x2817 {
             panic!("should have tiles");
         }
         let opcode = self.consume_pc_u8(memory);
@@ -45,6 +45,11 @@ impl Cpu {
                     self.registers.pc_mut().set(address);
                     (MachineCycle(4), Instruction::JumpImmediate { address })
                 },
+                RawInstruction::EnableInterrupts => {
+                    // TODO: actually enable interrupts
+                    self.pending_interrupt_enable = true;
+                    (MachineCycle(1), Instruction::EnableInterrupts)
+                },
                 RawInstruction::DisableInterrupts => {
                     self.interrupt_master_enable = false;
                     self.pending_interrupt_enable = false;
@@ -53,10 +58,16 @@ impl Cpu {
                 RawInstruction::CallFunction => {
                     let address = self.consume_pc_u16(memory);
 
-                    self.push_stack_16(memory, self.registers.pc().get());
+                    self.push_stack(memory, self.registers.pc().get());
                     self.registers.pc_mut().set(address);
 
                     (MachineCycle(6), Instruction::CallFunction { address })
+                },
+                RawInstruction::ReturnFunction => {
+                    let popped = self.pop_stack(memory);
+                    self.registers.pc_mut().set(popped);
+
+                    (MachineCycle(4), Instruction::ReturnFunction)
                 },
                 RawInstruction::JumpRelativeConditional { operand } => {
                     let relative = self.consume_pc_i8(memory);
@@ -244,6 +255,20 @@ impl Cpu {
 
                     (MachineCycle(2), Instruction::CompareImmediate { immediate })
                 },
+                RawInstruction::BitwiseAndImmediate => {
+                    let immediate = self.consume_pc_u8(memory);
+
+                    let result = self.registers.a_mut().update(|a| a & immediate);
+
+                    self.registers.f_mut().update(|_| {
+                        let mut z = CpuFlags::empty();
+                        z.set(CpuFlags::ZERO, result == 0);
+                        z.insert(CpuFlags::HALF_CARRY);
+                        z
+                    });
+
+                    (MachineCycle(2), Instruction::BitwiseAndImmediate { immediate })
+                }
                 RawInstruction::BitwiseOrRegister { operand } => {
                     let value = match operand {
                         Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
@@ -258,6 +283,31 @@ impl Cpu {
                     });
 
                     (MachineCycle(1), Instruction::BitwiseOrRegister { operand })
+                },
+                RawInstruction::BitwiseAndRegister { operand } => {
+                    let value = match operand {
+                        Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
+                        Operand3::IndirectHL => memory.read_memory(self.registers.hl().get_u16().into()),
+                    };
+                    let result = self.registers.a_mut().update(|a| a & value);
+
+                    self.registers.f_mut().update(|_| {
+                        let mut z = CpuFlags::empty();
+                        z.set(CpuFlags::ZERO, result == 0);
+                        z.insert(CpuFlags::HALF_CARRY);
+                        z
+                    });
+
+                    (MachineCycle(1), Instruction::BitwiseOrRegister { operand })
+                },
+                RawInstruction::ComplementAccumulator => {
+                    self.registers.a_mut().update(|a| !a);
+                    self.registers.f_mut().update(|mut f| {
+                        f.insert(CpuFlags::SUB);
+                        f.insert(CpuFlags::HALF_CARRY);
+                        f
+                    });
+                    (MachineCycle(1), Instruction::ComplementAccumulator)
                 },
                 i => unimplemented!("unsupported instruction {:?}", i)
             }
@@ -312,12 +362,23 @@ impl Cpu {
         }
     }
 
-    fn push_stack_16(&mut self, memory: &mut Memory, value: u16) {
+    fn push_stack(&mut self, memory: &mut Memory, value: u16) {
         let sp = self.registers.sp_mut();
         sp.update(|sp| sp.wrapping_sub(1));
-
         memory.write_memory(sp.get(), u16_msb(value));
+        sp.update(|sp| sp.wrapping_sub(1));
         memory.write_memory(sp.get(), u16_lsb(value));
+    }
+
+    fn pop_stack(&mut self, memory: &mut Memory) -> u16 {
+        let sp = self.registers.sp_mut();
+       
+        let lsb = memory.read_memory(sp.get());
+        sp.update(|sp| sp.wrapping_add(1));
+        let msb = memory.read_memory(sp.get());
+        sp.update(|sp| sp.wrapping_add(1));
+
+        u16_le(lsb, msb)
     }
 }
 

@@ -185,9 +185,11 @@ macro_rules! instructions {
 
 instructions!(
     Nop,
+    EnableInterrupts,
     DisableInterrupts,
     Halt,
     CallFunction | { address: u16 },
+    ReturnFunction,
     JumpImmediate | { address: u16 },
     JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
@@ -204,15 +206,20 @@ instructions!(
     LoadAccumulatorToIndirectC,
     LoadAccumulatorToMemory | { immediate: u16 },
     CompareImmediate | { immediate: u8 },
+    BitwiseAndImmediate | { immediate: u8 },
     BitwiseOrRegister { operand: Operand3 },
+    BitwiseAndRegister { operand: Operand3 },
+    ComplementAccumulator,
 );
 
 impl RawInstruction {
     pub fn new(opcode: u8) -> Result<Self, CpuError> {
         match opcode {
             0x00 => Ok(Self::Nop),
+            0xFB => Ok(Self::EnableInterrupts),
             0xF3 => Ok(Self::DisableInterrupts),
             0xCD => Ok(Self::CallFunction),
+            0xC9 => Ok(Self::ReturnFunction),
             0xC3 => Ok(Self::JumpImmediate),
             byte_permutations!("0b0010_xx00") => {
                 let idx = match_bits!(opcode, "0b0010_xx00");
@@ -290,10 +297,21 @@ impl RawInstruction {
             0xFE => {
                 Ok(Self::CompareImmediate)
             },
+            0xE6 => {
+                Ok(Self::BitwiseAndImmediate)
+            },
             byte_permutations!("0b1011_0xxx") => {
                 let idx = match_bits!(opcode, "0b1011_0xxx");
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::BitwiseOrRegister { operand })
+            },
+            byte_permutations!("0b1010_0xxx") => {
+                let idx = match_bits!(opcode, "0b1011_0xxx");
+                let operand = Operand3::new(idx).unwrap();
+                Ok(Self::BitwiseAndRegister { operand })
+            },
+            0x2F => {
+                Ok(Self::ComplementAccumulator)
             },
             _ => Err(CpuError::InvalidInstruction)
         }
@@ -307,8 +325,10 @@ impl std::fmt::Display for Instruction {
         match self {
             Nop => write!(f, "nop"),
             Halt => write!(f, "halt"),
+            EnableInterrupts => write!(f, "ei"),
             DisableInterrupts => write!(f, "di"),
             CallFunction { address } => write!(f, "call {:#x}", address),
+            ReturnFunction => write!(f, "ret"),
             JumpImmediate { address } => write!(f, "jp {:#x}", address),
             JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
             XorRegister { operand } => write!(f, "xor {}", operand),
@@ -325,7 +345,10 @@ impl std::fmt::Display for Instruction {
             LoadHighMemoryToAccumulator { immediate } => write!(f, "ldh a, {:#x}", immediate),
             LoadAccumulatorToMemory { immediate } => write!(f, "ld {:#x}, a", immediate),
             CompareImmediate { immediate } => write!(f, "cp {:#x}", immediate),
+            BitwiseAndImmediate { immediate } => write!(f, "and {:#x}", immediate),
             BitwiseOrRegister { operand } => write!(f, "or {}", operand),
+            BitwiseAndRegister { operand } => write!(f, "and {}", operand),
+            ComplementAccumulator => write!(f, "cpl"),
         }
     }
 }

@@ -56,6 +56,8 @@ pub type Oam = MemoryRegion<160, 0xFE00, 0xFE9F>;
 const UNUSABLE_START_ADDRESS: u16 = 0xFE00;
 const UNUSABLE_END_ADDRESS: u16 = 0xFEFF;
 
+// TODO: flags and interrupts for joypad
+const JOYPAD_ADDRESS: u16 = 0xFF00;
 const REQUESTED_INTERRUPTS_ADDRESS: u16 = 0xFF0F;
 
 const AUDIO_START_ADDRESS: u16 = 0xFF10;
@@ -63,6 +65,9 @@ const AUDIO_END_ADDRESS: u16 = 0xFF26;
 
 const SERIAL_TRANSFER_DATA_ADDRESS: u16 = 0xFF01;
 const SERIAL_TRANSFER_CONTROL_ADDRESS: u16 = 0xFF02;
+
+const TIMER_MODULO_ADDRESS: u16 = 0xFF06;
+const TIMER_CONTROL_ADDRESS: u16 = 0xFF07;
 
 const LCD_CONTROL_ADDRESS: u16 = 0xFF40;
 const LCD_STATUS_ADDRESS: u16 = 0xFF41;
@@ -72,6 +77,8 @@ const SCREEN_X_ADDRESS: u16 = 0xFF43;
 const BG_PALETTE_ADDRESS: u16 = 0xFF47;
 const OBJ_PALETTE_0_ADDRESS: u16 = 0xFF48;
 const OBJ_PALETTE_1_ADDRESS: u16 = 0xFF49;
+const WINDOW_Y_ADDRESS: u16 = 0xFF4A;
+const WINDOW_X_ADDRESS: u16 = 0xFF4B;
 
 pub type HRam = MemoryRegion<127, 0xFF80, 0xFFFE>;
 
@@ -79,17 +86,24 @@ const ENABLED_INTERRUPTS_ADDRESS: u16 = 0xFFFF;
 
 pub struct Memory {
     // provides rom bank and stuff
-    mbc: mbc::MBC,
+    pub mbc: mbc::MBC,
 
     pub vram: VRam,
-    wram: WRam,
+    pub wram: WRam,
     pub oam: Oam,
 
+    // TODO: flags for joypad!
+    pub joypad: Register<u8>,
     // IO registers
-    requested_interrupts: Register<interrupt::RequestFlags>,
+    pub requested_interrupts: Register<interrupt::RequestFlags>,
 
-    serial_transfer_data: Register<u8>,
-    serial_transfer_control: Register<SerialControlFlags>,
+    pub serial_transfer_data: Register<u8>,
+    pub serial_transfer_control: Register<SerialControlFlags>,
+
+    // TODO: this has interrupt handling
+    pub timer_modulo: Register<u8>,
+    // TODO: flags for timer control
+    pub timer_control: Register<u8>,
 
     pub lcd_control: Register<LCDControlFlags>,
     pub lcd_status: Register<LCDStatusFlags>,
@@ -99,9 +113,11 @@ pub struct Memory {
     pub bg_palette: Register<u8>,
     pub obj_palette0: Register<u8>,
     pub obj_palette1: Register<u8>,
+    pub window_x: Register<u8>,
+    pub window_y: Register<u8>,
 
     pub hram: HRam,
-    enabled_interrupts: Register<interrupt::EnableFlags>,
+    pub enabled_interrupts: Register<interrupt::EnableFlags>,
 }
 
 impl Memory {
@@ -112,10 +128,15 @@ impl Memory {
             wram: Default::default(),
             oam: Default::default(),
 
+            joypad: 0xCF.into(),
+
             requested_interrupts: Register::from_bits_retain(0xE1),
 
             serial_transfer_data: Default::default(),
             serial_transfer_control: Register::from_bits_retain(0x7E),
+
+            timer_modulo: Default::default(),
+            timer_control: 0xF8.into(),
 
             lcd_control: Register::from_bits_retain(0x91),
             lcd_status: Register::from_bits_retain(0x85),
@@ -125,6 +146,8 @@ impl Memory {
             bg_palette: 0xFC.into(),
             obj_palette0: Default::default(),
             obj_palette1: Default::default(),
+            window_x: Default::default(),
+            window_y: Default::default(),
 
             hram: Default::default(),
             enabled_interrupts: Default::default(),
@@ -140,12 +163,15 @@ impl ReadMemory for Memory {
             VRam::START..=VRam::END => self.vram.read_memory(address),
             WRam::START..=WRam::END => self.wram.read_memory(address),
             Oam::START..=Oam::END => self.oam.read_memory(address),
+            JOYPAD_ADDRESS => self.joypad.get(),
             UNUSABLE_START_ADDRESS..=UNUSABLE_END_ADDRESS => 0,
             0xFF7F => 0,
             REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.get().bits(),
             AUDIO_START_ADDRESS..=AUDIO_END_ADDRESS => 0,
             SERIAL_TRANSFER_DATA_ADDRESS => self.serial_transfer_data.get(),
             SERIAL_TRANSFER_CONTROL_ADDRESS => self.serial_transfer_control.get().bits(),
+            TIMER_MODULO_ADDRESS => self.timer_modulo.get(),
+            TIMER_CONTROL_ADDRESS => self.timer_control.get(),
             LCD_CONTROL_ADDRESS => self.lcd_control.get().bits(),
             LCD_STATUS_ADDRESS => self.lcd_status.get().bits(),
             LCD_Y_ADDRESS => self.lcd_y.get(),
@@ -154,6 +180,8 @@ impl ReadMemory for Memory {
             BG_PALETTE_ADDRESS => self.bg_palette.get(),
             OBJ_PALETTE_0_ADDRESS=> self.obj_palette0.get(),
             OBJ_PALETTE_1_ADDRESS => self.obj_palette1.get(),
+            WINDOW_X_ADDRESS => self.window_x.get(),
+            WINDOW_Y_ADDRESS => self.window_y.get(),
             HRam::START..=HRam::END => self.hram.read_memory(address),
             ENABLED_INTERRUPTS_ADDRESS => self.enabled_interrupts.get().bits(),
             _ => unimplemented!("address: {:x}", address)
@@ -169,12 +197,15 @@ impl WriteMemory for Memory {
             VRam::START..=VRam::END => self.vram.write_memory(address, value),
             WRam::START..=WRam::END => self.wram.write_memory(address, value),
             Oam::START..=Oam::END => self.oam.write_memory(address, value),
+            JOYPAD_ADDRESS => self.joypad.set(value),
             UNUSABLE_START_ADDRESS..=UNUSABLE_END_ADDRESS => {},
             0xFF7F => {},
             REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.set(RequestFlags::from_bits_truncate(value)),
             AUDIO_START_ADDRESS..=AUDIO_END_ADDRESS => {},
             SERIAL_TRANSFER_DATA_ADDRESS => self.serial_transfer_data.set(value),
             SERIAL_TRANSFER_CONTROL_ADDRESS => self.serial_transfer_control.set(SerialControlFlags::from_bits_truncate(value)),
+            TIMER_MODULO_ADDRESS => self.timer_modulo.set(value),
+            TIMER_CONTROL_ADDRESS => self.timer_control.set(value),
             LCD_CONTROL_ADDRESS => self.lcd_control.set(LCDControlFlags::from_bits_truncate(value)),
             LCD_STATUS_ADDRESS => self.lcd_status.set(LCDStatusFlags::from_bits_truncate(value)),
             SCREEN_Y_ADDRESS => self.screen_y.set(value),
@@ -182,6 +213,8 @@ impl WriteMemory for Memory {
             BG_PALETTE_ADDRESS => self.bg_palette.set(value),
             OBJ_PALETTE_0_ADDRESS=> self.obj_palette0.set(value),
             OBJ_PALETTE_1_ADDRESS => self.obj_palette1.set(value),
+            WINDOW_X_ADDRESS => self.window_x.set(value),
+            WINDOW_Y_ADDRESS => self.window_y.set(value),
             HRam::START..=HRam::END => self.hram.write_memory(address, value),
             ENABLED_INTERRUPTS_ADDRESS => self.enabled_interrupts.set(EnableFlags::from_bits_truncate(value)),
             _ => unimplemented!("address: {:x}", address)
