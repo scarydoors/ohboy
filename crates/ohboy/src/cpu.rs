@@ -1,7 +1,4 @@
 use core::panic;
-use std::mem::swap;
-
-use bitflags::{Flags, bitflags};
 
 use crate::{cpu::{instructions::{AnyInstruction, CBInstruction, ConditionalOperand, IndirectOperand, Instruction, Operand3, RawCBInstruction, RawInstruction}, register::{ByteRegisterWrite, CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, emulator::MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
@@ -34,7 +31,6 @@ impl Cpu {
     }
 
     pub fn cycle(&mut self, memory: &mut Memory) -> Result<(MachineCycle, AnyInstruction), CpuError> {
-        //println!("reading opcode at {:x}", self.registers.pc().get());
         if self.registers.pc().get() == 0x2817 {
             panic!("should have tiles");
         }
@@ -317,7 +313,7 @@ impl Cpu {
                         z
                     });
 
-                    (MachineCycle(1), Instruction::BitwiseOrRegister { operand })
+                    (MachineCycle(1), Instruction::BitwiseAndRegister { operand })
                 },
                 RawInstruction::ComplementAccumulator => {
                     self.registers.a_mut().update(|a| !a);
@@ -328,6 +324,12 @@ impl Cpu {
                     });
                     (MachineCycle(1), Instruction::ComplementAccumulator)
                 },
+                RawInstruction::Restart { address } => {
+                    self.push_stack(memory, self.registers.pc().get());
+                    self.registers.pc_mut().set(address.into());
+
+                    (MachineCycle(4), Instruction::Restart { address })
+                }
                 RawInstruction::Halt => unimplemented!("halt"),
                 RawInstruction::CBPrefix => (MachineCycle(0), Instruction::CBPrefix),
             }
