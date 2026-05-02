@@ -1,6 +1,9 @@
+use core::panic;
+use std::mem::swap;
+
 use bitflags::{Flags, bitflags};
 
-use crate::{cpu::{instructions::{ConditionalOperand, IndirectOperand, Instruction, Operand3, RawInstruction}, register::{CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, emulator::MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
+use crate::{cpu::{instructions::{AnyInstruction, CBInstruction, ConditionalOperand, IndirectOperand, Instruction, Operand3, RawCBInstruction, RawInstruction}, register::{ByteRegisterWrite, CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, emulator::MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
 //PC 0x2817 is when tiles are loaded probably
 pub mod register;
@@ -8,8 +11,10 @@ pub mod interrupt;
 mod instructions;
 
 
+#[derive(Debug, thiserror::Error)]
 pub enum CpuError {
-    InvalidInstruction,
+    #[error("unknown opcode: {opcode:#x}")]
+    InvalidInstruction { opcode: u8 },
 }
 
 pub struct Cpu {
@@ -28,14 +33,28 @@ impl Cpu {
         }
     }
 
-    pub fn cycle(&mut self, memory: &mut Memory) -> (MachineCycle, Instruction) {
+    pub fn cycle(&mut self, memory: &mut Memory) -> Result<(MachineCycle, AnyInstruction), CpuError> {
         //println!("reading opcode at {:x}", self.registers.pc().get());
         if self.registers.pc().get() == 0x2817 {
             panic!("should have tiles");
         }
         let opcode = self.consume_pc_u8(memory);
-        if let Ok(i) = RawInstruction::new(opcode) {
-            match i {
+        let (machine_cycle, instruction) = self.execute(memory, opcode)?;
+        Ok(match instruction {
+            Instruction::CBPrefix => {
+                let opcode = self.consume_pc_u8(memory);
+                let (machine_cycle, cb_instruction) = self.execute_cb_prefix(memory, opcode)?;
+                (machine_cycle, cb_instruction.into())
+            }
+            _ => {
+                (machine_cycle, instruction.into())    
+            }
+        })
+    }
+
+    fn execute(&mut self, memory: &mut Memory, opcode: u8) -> Result<(MachineCycle, Instruction), CpuError> {
+        Ok(
+            match RawInstruction::new(opcode)? {
                 RawInstruction::Nop => {
                     (MachineCycle(1), Instruction::Nop)
                 },
@@ -309,11 +328,42 @@ impl Cpu {
                     });
                     (MachineCycle(1), Instruction::ComplementAccumulator)
                 },
-                i => unimplemented!("unsupported instruction {:?}", i)
+                RawInstruction::Halt => unimplemented!("halt"),
+                RawInstruction::CBPrefix => (MachineCycle(0), Instruction::CBPrefix),
             }
-        } else {
-            panic!("{:?}\n{:?}\nunknown opcode {:#x} {:x}!", memory.oam, memory.vram, self.registers.pc().get(), opcode);
-        }
+        )
+    }
+
+    fn execute_cb_prefix(&mut self, memory: &mut Memory, opcode: u8) -> Result<(MachineCycle, CBInstruction), CpuError> {
+        Ok(
+            match RawCBInstruction::new(opcode)? {
+                RawCBInstruction::SwapNibbles { operand } => {
+                    let result = match operand {
+                        Operand3::Register(r) => {
+                            self.registers.get_short_register_mut(r).update_u8(&|r| {
+                                swap_nibbles(r)
+                            })
+                        },
+                        Operand3::IndirectHL => {
+                            let address = self.registers.hl().get_u16();
+                            let value = memory.read_memory(address);
+
+                            let result = swap_nibbles(value);
+                            memory.write_memory(address, result);
+                            result
+                        },
+                    };
+
+                    self.registers.f_mut().update(|_| {
+                        let mut f = CpuFlags::empty();
+                        f.set(CpuFlags::ZERO, result == 0);
+                        f
+                    });
+
+                    (MachineCycle(2), CBInstruction::SwapNibbles { operand })
+                },
+            }
+        )
     }
 
     fn check_condition(&self, operand: ConditionalOperand) -> bool {
@@ -392,6 +442,21 @@ fn u16_lsb(value: u16) -> u8 {
 
 fn u16_msb(value: u16) -> u8 {
     (value >> 8) as u8
+}
+
+fn lower_nibble(value: u8) -> u8 {
+    value & 0xF
+}
+
+fn upper_nibble(value: u8) -> u8 {
+    (value >> 4) & 0xF
+}
+
+fn swap_nibbles(value: u8) -> u8 {
+    let lower = lower_nibble(value);
+    let upper = upper_nibble(value);
+
+    lower << 4 | upper
 }
 
 

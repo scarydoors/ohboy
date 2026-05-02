@@ -22,8 +22,13 @@ impl Emulator {
     pub fn run_frame(&mut self) {
         loop {
             let pc = self.cpu.registers.pc().get();
-            let (machine_cycle, instruction) = self.cpu.cycle(&mut self.memory);
-            println!("{:#x}: {}", pc, instruction);
+            let machine_cycle = match self.cpu.cycle(&mut self.memory) {
+                Ok((machine_cycle, instruction)) => {
+                    println!("{:#x}: {}", pc, instruction);
+                    machine_cycle
+                },
+                Err(e) => panic!("{}", e),
+            };
             if self.ppu.step(&mut self.memory, machine_cycle.into()) {
                 return
             }

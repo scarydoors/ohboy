@@ -1,4 +1,4 @@
-use crate::cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}};
+use crate::{cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}}, emulator::MachineCycle};
 use ohboy_macro::{byte_permutations, match_bits};
 
 
@@ -145,71 +145,89 @@ impl std::fmt::Display for IndirectOperand {
 }
 
 macro_rules! instructions {
-    (@full [$($variant:tt)*]) => {
+    (@full $enum_name:ident [$($variant:tt)*]) => {
         #[derive(Clone, Copy, Debug)]
-        pub enum Instruction {
+        pub enum $enum_name {
             $($variant)*
         }
     };
-    (@full [$($variant:tt)*] $name:ident {$($raw_field:ident: $raw_type:ident),*} | {$($full_field:ident: $full_type:ident),*}, $($rest:tt)*) => {
-        instructions!(@full [$($variant)* $name {$($raw_field: $raw_type),*,$($full_field: $full_type),*},] $($rest)*);
+    (@full $enum_name:ident [$($variant:tt)*] $name:ident {$($raw_field:ident: $raw_type:ident),*} | {$($full_field:ident: $full_type:ident),*}, $($rest:tt)*) => {
+        instructions!(@full $enum_name [$($variant)* $name {$($raw_field: $raw_type),*,$($full_field: $full_type),*},] $($rest)*);
     };
 
-    (@full [$($variant:tt)*] $name:ident | {$($full_field:ident: $full_type:ident),*}, $($rest:tt)*) => {
-        instructions!(@full [$($variant)* $name {$($full_field: $full_type),*},] $($rest)*);
+    (@full $enum_name:ident [$($variant:tt)*] $name:ident | {$($full_field:ident: $full_type:ident),*}, $($rest:tt)*) => {
+        instructions!(@full $enum_name [$($variant)* $name {$($full_field: $full_type),*},] $($rest)*);
     };
 
-    (@full [$($variant:tt)*] $name:ident {$($raw_field:ident: $raw_type:ident),*}, $($rest:tt)*) => {
-        instructions!(@full [$($variant)* $name {$($raw_field: $raw_type),*},] $($rest)*);
+    (@full $enum_name:ident [$($variant:tt)*] $name:ident {$($raw_field:ident: $raw_type:ident),*}, $($rest:tt)*) => {
+        instructions!(@full $enum_name [$($variant)* $name {$($raw_field: $raw_type),*},] $($rest)*);
     };
 
-    (@full [$($variant:tt)*] $name:ident, $($rest:tt)*) => {
-        instructions!(@full [$($variant)* $name,] $($rest)*);
+    (@full $enum_name:ident [$($variant:tt)*] $name:ident, $($rest:tt)*) => {
+        instructions!(@full $enum_name [$($variant)* $name,] $($rest)*);
     };
 
-    (@raw [$($variant:tt)*]) => {
+    (@raw $enum_name:ident [$($variant:tt)*]) => {
         #[derive(Clone, Copy, Debug)]
-        pub enum RawInstruction {
+        pub enum $enum_name {
             $($variant)*
         }
     };
-    (@raw [$($variant:tt)*] $name:ident $({$($raw_field:ident: $raw_type:ident),*})? $(| {$($_ignored:tt)*})?, $($rest:tt)*) => {
-        instructions!(@raw [$($variant)* $name $({ $($raw_field: $raw_type),* })?,] $($rest)*);
+    (@raw $enum_name:ident [$($variant:tt)*] $name:ident $({$($raw_field:ident: $raw_type:ident),*})? $(| {$($_ignored:tt)*})?, $($rest:tt)*) => {
+        instructions!(@raw $enum_name [$($variant)* $name $({ $($raw_field: $raw_type),* })?,] $($rest)*);
     };
 
-    ($($rest:tt)*) => {
-        instructions!(@full [] $($rest)*);
-        instructions!(@raw [] $($rest)*);
+    (enums: {raw: $raw:ident, full: $full:ident, }, instructions: {$($rest:tt)*},) => {
+        instructions!(@full $full [] $($rest)*);
+        instructions!(@raw $raw [] $($rest)*);
     };
 }
 
 instructions!(
-    Nop,
-    EnableInterrupts,
-    DisableInterrupts,
-    Halt,
-    CallFunction | { address: u16 },
-    ReturnFunction,
-    JumpImmediate | { address: u16 },
-    JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
-    XorRegister { operand: Operand3 },
-    IncRegister8 { operand: Operand3 },
-    DecRegister8 { operand: Operand3 },
-    DecRegister16 { operand: Operand2 },
-    LoadRegisterToRegister { left_operand: Operand3, right_operand: Operand3 },
-    LoadAccumulatorToIndirect { operand: IndirectOperand },
-    LoadIndirectToAccumulator { operand: IndirectOperand },
-    LoadImmediateToRegister8 { operand: Operand3 } | { immediate: u8 },
-    LoadImmediateToRegister16 { operand: Operand2 } | { immediate: u16 },
-    LoadAccumulatorToHighMemory | { immediate: u8 },
-    LoadHighMemoryToAccumulator | { immediate: u8 },
-    LoadAccumulatorToIndirectC,
-    LoadAccumulatorToMemory | { immediate: u16 },
-    CompareImmediate | { immediate: u8 },
-    BitwiseAndImmediate | { immediate: u8 },
-    BitwiseOrRegister { operand: Operand3 },
-    BitwiseAndRegister { operand: Operand3 },
-    ComplementAccumulator,
+    enums: {
+        raw: RawInstruction,
+        full: Instruction,
+    },
+    instructions: {
+        Nop,
+        EnableInterrupts,
+        DisableInterrupts,
+        Halt,
+        CallFunction | { address: u16 },
+        ReturnFunction,
+        JumpImmediate | { address: u16 },
+        JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
+        XorRegister { operand: Operand3 },
+        IncRegister8 { operand: Operand3 },
+        DecRegister8 { operand: Operand3 },
+        DecRegister16 { operand: Operand2 },
+        LoadRegisterToRegister { left_operand: Operand3, right_operand: Operand3 },
+        LoadAccumulatorToIndirect { operand: IndirectOperand },
+        LoadIndirectToAccumulator { operand: IndirectOperand },
+        LoadImmediateToRegister8 { operand: Operand3 } | { immediate: u8 },
+        LoadImmediateToRegister16 { operand: Operand2 } | { immediate: u16 },
+        LoadAccumulatorToHighMemory | { immediate: u8 },
+        LoadHighMemoryToAccumulator | { immediate: u8 },
+        LoadAccumulatorToIndirectC,
+        LoadAccumulatorToMemory | { immediate: u16 },
+        CompareImmediate | { immediate: u8 },
+        BitwiseAndImmediate | { immediate: u8 },
+        BitwiseOrRegister { operand: Operand3 },
+        BitwiseAndRegister { operand: Operand3 },
+        ComplementAccumulator,
+
+        CBPrefix,
+    },
+);
+
+instructions!(
+    enums: {
+        raw: RawCBInstruction,
+        full: CBInstruction,
+    },
+    instructions: {
+        SwapNibbles { operand: Operand3 },
+    },
 );
 
 impl RawInstruction {
@@ -313,7 +331,10 @@ impl RawInstruction {
             0x2F => {
                 Ok(Self::ComplementAccumulator)
             },
-            _ => Err(CpuError::InvalidInstruction)
+            0xCB => {
+                Ok(Self::CBPrefix)
+            },
+            _ => Err(CpuError::InvalidInstruction { opcode })
         }
     }
 }
@@ -349,7 +370,57 @@ impl std::fmt::Display for Instruction {
             BitwiseOrRegister { operand } => write!(f, "or {}", operand),
             BitwiseAndRegister { operand } => write!(f, "and {}", operand),
             ComplementAccumulator => write!(f, "cpl"),
+            _ => Err(std::fmt::Error)
         }
     }
 }
 
+impl RawCBInstruction {
+    pub fn new(opcode: u8) -> Result<Self, CpuError> {
+        match opcode {
+            byte_permutations!("0b0011_0xxx") => {
+                let idx = match_bits!(opcode, "0b0011_0xxx");
+                let operand = Operand3::new(idx).unwrap();
+                Ok(Self::SwapNibbles { operand })
+            },
+            _ => Err(CpuError::InvalidInstruction { opcode })
+        }
+    }
+}
+
+impl std::fmt::Display for CBInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use CBInstruction::*;
+
+        match self {
+            SwapNibbles { operand } => write!(f, "swap {}", operand),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum AnyInstruction {
+    Instruction(Instruction),
+    CBInstruction(CBInstruction),
+}
+
+impl From<CBInstruction> for AnyInstruction {
+    fn from(v: CBInstruction) -> Self {
+        Self::CBInstruction(v)
+    }
+}
+
+impl From<Instruction> for AnyInstruction {
+    fn from(v: Instruction) -> Self {
+        Self::Instruction(v)
+    }
+}
+
+impl std::fmt::Display for AnyInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AnyInstruction::Instruction(i) => write!(f, "{}", i),
+            AnyInstruction::CBInstruction(cb) => write!(f, "{}", cb),
+        }
+    }
+}
