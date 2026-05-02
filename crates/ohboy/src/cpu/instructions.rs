@@ -190,13 +190,16 @@ instructions!(
     JumpImmediate | { address: u16 },
     JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
+    IncRegister { operand: Operand3 },
     DecRegister { operand: Operand3 },
     LoadAccumulatorToIndirect { operand: IndirectOperand },
+    LoadIndirectToAccumulator { operand: IndirectOperand },
     LoadIndirectHLToRegister8 { operand: Operand3 },
     LoadImmediateToRegister8 { operand: Operand3 } | { immediate: u8 },
     LoadImmediateToRegister16 { operand: Operand2 } | { immediate: u16 },
     LoadAccumulatorToHighMemory | { immediate: u8 },
     LoadHighMemoryToAccumulator | { immediate: u8 },
+    LoadAccumulatorToIndirectC,
     LoadAccumulatorToMemory | { immediate: u16 },
     CompareImmediate | { immediate: u8 },
 );
@@ -212,6 +215,11 @@ impl RawInstruction {
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::XorRegister { operand })
             },
+            byte_permutations!("0b00xx_x100") => {
+                let idx = match_bits!(opcode, "0b00xx_x100");
+                let operand = Operand3::new(idx).unwrap();
+                Ok(Self::IncRegister { operand })
+            },
             byte_permutations!("0b00xx_x101") => {
                 let idx = match_bits!(opcode, "0b00xx_x101");
                 let operand = Operand3::new(idx).unwrap();
@@ -226,6 +234,11 @@ impl RawInstruction {
                 let idx = match_bits!(opcode, "0b00xx_0010");
                 let operand = IndirectOperand::new(idx).unwrap();
                 Ok(Self::LoadAccumulatorToIndirect { operand })
+            },
+            byte_permutations!("0b00xx_1010") => {
+                let idx = match_bits!(opcode, "0b00xx_1010");
+                let operand = IndirectOperand::new(idx).unwrap();
+                Ok(Self::LoadIndirectToAccumulator { operand })
             },
             byte_permutations!("0b01xx_x110") => {
                 let idx = match_bits!(opcode, "0b01xx_x110");
@@ -249,6 +262,9 @@ impl RawInstruction {
             0xE0 => {
                 Ok(Self::LoadAccumulatorToHighMemory)
             },
+            0xE2 => {
+                Ok(Self::LoadAccumulatorToIndirectC)
+            },
             0xEA => {
                 Ok(Self::LoadAccumulatorToMemory)
             },
@@ -265,22 +281,27 @@ impl RawInstruction {
 
 impl std::fmt::Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Instruction::*;
+
         match self {
-            Instruction::Nop => write!(f, "nop"),
-            Instruction::Halt => write!(f, "halt"),
-            Instruction::DisableInterrupts => write!(f, "di"),
-            Instruction::JumpImmediate { address } => write!(f, "jp {:#x}", address),
-            Instruction::JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
-            Instruction::XorRegister { operand } => write!(f, "xor {}", operand),
-            Instruction::DecRegister { operand } => write!(f, "dec {}", operand),
-            Instruction::LoadAccumulatorToIndirect { operand } => write!(f, "ld {}, a", operand),
-            Instruction::LoadIndirectHLToRegister8 { operand } => write!(f, "ld {}, [hl]", operand),
-            Instruction::LoadImmediateToRegister8 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
-            Instruction::LoadImmediateToRegister16 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
-            Instruction::LoadAccumulatorToHighMemory { immediate } => write!(f, "ldh {:#x}, a", immediate),
-            Instruction::LoadHighMemoryToAccumulator { immediate } => write!(f, "ldh a, {:#x}", immediate),
-            Instruction::LoadAccumulatorToMemory { immediate } => write!(f, "ld {:#x}, a", immediate),
-            Instruction::CompareImmediate { immediate } => write!(f, "cp {:#x}", immediate),
+            Nop => write!(f, "nop"),
+            Halt => write!(f, "halt"),
+            DisableInterrupts => write!(f, "di"),
+            JumpImmediate { address } => write!(f, "jp {:#x}", address),
+            JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
+            XorRegister { operand } => write!(f, "xor {}", operand),
+            IncRegister { operand } => write!(f, "inc {}", operand),
+            DecRegister { operand } => write!(f, "dec {}", operand),
+            LoadAccumulatorToIndirect { operand } => write!(f, "ld {}, a", operand),
+            LoadIndirectToAccumulator { operand } => write!(f, "ld a, {}", operand),
+            LoadIndirectHLToRegister8 { operand } => write!(f, "ld {}, [hl]", operand),
+            LoadImmediateToRegister8 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
+            LoadImmediateToRegister16 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
+            LoadAccumulatorToHighMemory { immediate } => write!(f, "ldh {:#x}, a", immediate),
+            LoadAccumulatorToIndirectC => write!(f, "ldh [c], a"),
+            LoadHighMemoryToAccumulator { immediate } => write!(f, "ldh a, {:#x}", immediate),
+            LoadAccumulatorToMemory { immediate } => write!(f, "ld {:#x}, a", immediate),
+            CompareImmediate { immediate } => write!(f, "cp {:#x}", immediate),
         }
     }
 }

@@ -1,6 +1,6 @@
 use bitflags::{Flags, bitflags};
 
-use crate::{cpu::{instructions::{ConditionalOperand, Instruction, Operand3, RawInstruction}, register::{CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, emulator::MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
+use crate::{cpu::{instructions::{ConditionalOperand, IndirectOperand, Instruction, Operand3, RawInstruction}, register::{CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, emulator::MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
 //PC 0x2817 is when tiles are loaded probably
 pub mod register;
@@ -80,6 +80,33 @@ impl Cpu {
 
                     (machine_cycle, Instruction::XorRegister { operand })
                 },
+                RawInstruction::IncRegister { operand } => {
+                    let AddCarryResult { result, half_carry, .. } = match operand {
+                        Operand3::Register(r) => {
+                            let register = self.registers.get_short_register_mut(r);
+                            let result = add_carry(register.get_u8(), 1);
+                            register.set_u8(result.result);
+
+                            result
+                        },
+                        Operand3::IndirectHL => {
+                            let address = self.registers.hl().get_u16();
+                            let result = add_carry(memory.read_memory(address), 1);
+                            memory.write_memory(address, result.result);
+
+                            result
+                        },
+                    };
+                    
+                    self.registers.f_mut().update(|mut f| {
+                        f.remove(CpuFlags::SUB);
+                        f.set(CpuFlags::ZERO, result == 0);
+                        f.set(CpuFlags::HALF_CARRY, half_carry);
+                        f
+                    });
+
+                    (MachineCycle(1), Instruction::DecRegister { operand })
+                },
                 RawInstruction::DecRegister { operand } => {
                     let SubCarryResult { result, half_carry, .. } = match operand {
                         Operand3::Register(r) => {
@@ -108,23 +135,15 @@ impl Cpu {
                     (MachineCycle(1), Instruction::DecRegister { operand })
                 },
                 RawInstruction::LoadAccumulatorToIndirect { operand } => {
-                    let mut register = self.registers.get_word_register_mut(operand.register());
-                    let address = match operand {
-                        instructions::IndirectOperand::HLInc => {
-                            let address = register.get_u16();
-                            register.update_u16(&|hl| hl + 1);
-                            address
-                        },
-                        instructions::IndirectOperand::HLDec => {
-                            let address = register.get_u16();
-                            register.update_u16(&|hl| hl - 1);
-                            address
-                        },
-                        _ => register.get_u16(),
-                    };
+                    let address = self.get_indirect_address(operand);
                     let a = self.registers.a().get();
                     memory.write_memory(address, a);
                     (MachineCycle(2), Instruction::LoadAccumulatorToIndirect { operand })
+                },
+                RawInstruction::LoadIndirectToAccumulator { operand } => {
+                    let address = self.get_indirect_address(operand);
+                    self.registers.a_mut().set(memory.read_memory(address));
+                    (MachineCycle(2), Instruction::LoadIndirectToAccumulator { operand })
                 },
                 RawInstruction::LoadIndirectHLToRegister8 { operand } => {
                     let address = self.registers.hl().get_u16();
@@ -173,6 +192,12 @@ impl Cpu {
                     self.registers.a_mut().set(memory.read_memory(high_address(immediate)));
                     (MachineCycle(3), Instruction::LoadHighMemoryToAccumulator { immediate })
                 },
+                RawInstruction::LoadAccumulatorToIndirectC => {
+                    let address = high_address(self.registers.c().get());
+                    memory.write_memory(address, self.registers.a().get());
+
+                    (MachineCycle(2), Instruction::LoadAccumulatorToIndirectC)
+                },
                 RawInstruction::CompareImmediate => {
                     let immediate = self.consume_pc_u8(memory);
                     let a = self.registers.a().get();
@@ -191,8 +216,7 @@ impl Cpu {
                 i => unimplemented!("unsupported instruction {:?}", i)
             }
         } else {
-            panic!("{:?}\n{:?}", memory.oam, memory.vram);
-            unimplemented!("unknown opcode {:x}!", opcode)
+            panic!("{:?}\n{:?}\nunknown opcode {:x}!", memory.oam, memory.vram, opcode);
         }
     }
 
@@ -224,6 +248,23 @@ impl Cpu {
     fn consume_pc_i8(&mut self, memory: &mut Memory) -> i8 {
         self.consume_pc_u8(memory) as i8
     }
+
+    fn get_indirect_address(&mut self, indirect: IndirectOperand) -> u16 {
+        let mut register = self.registers.get_word_register_mut(indirect.register());
+        match indirect {
+            instructions::IndirectOperand::HLInc => {
+                let address = register.get_u16();
+                register.update_u16(&|hl| hl + 1);
+                address
+            },
+            instructions::IndirectOperand::HLDec => {
+                let address = register.get_u16();
+                register.update_u16(&|hl| hl - 1);
+                address
+            },
+            _ => register.get_u16(),
+        }
+    }
 }
 
 fn u16_le(lsb: u8, msb: u8) -> u16 {
@@ -234,9 +275,17 @@ fn u16_le(lsb: u8, msb: u8) -> u16 {
 struct SubCarryResult { result: u8, carry: bool, half_carry: bool }
 fn sub_carry(a: u8, b: u8) -> SubCarryResult {
     let (result, carry) = a.overflowing_sub(b);
-    let half_carry = (a & 0xF) < (b & 0xF);
+    return SubCarryResult { result, carry, half_carry: is_half_carry(a, b, result) }
+}
 
-    return SubCarryResult { result, carry, half_carry }
+struct AddCarryResult { result: u8, carry: bool, half_carry: bool }
+fn add_carry(a: u8, b: u8) -> AddCarryResult {
+    let (result, carry) = a.overflowing_add(b);
+    return AddCarryResult { result, carry, half_carry: is_half_carry(a, b, result) }
+}
+
+fn is_half_carry(a: u8, b: u8, result: u8) -> bool {
+    (a ^ b ^ result) & 0x10 == 0x10
 }
 
 fn high_address(low: u8) -> u16 {
