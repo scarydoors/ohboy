@@ -50,6 +50,14 @@ impl Cpu {
                     self.pending_interrupt_enable = false;
                     (MachineCycle(1), Instruction::DisableInterrupts)
                 },
+                RawInstruction::CallFunction => {
+                    let address = self.consume_pc_u16(memory);
+
+                    self.push_stack_16(memory, self.registers.pc().get());
+                    self.registers.pc_mut().set(address);
+
+                    (MachineCycle(6), Instruction::CallFunction { address })
+                },
                 RawInstruction::JumpRelativeConditional { operand } => {
                     let relative = self.consume_pc_i8(memory);
                     let machine_cycle = if self.check_condition(operand) {
@@ -254,21 +262,37 @@ impl Cpu {
         match indirect {
             instructions::IndirectOperand::HLInc => {
                 let address = register.get_u16();
-                register.update_u16(&|hl| hl + 1);
+                register.update_u16(&|hl| hl.wrapping_add(1));
                 address
             },
             instructions::IndirectOperand::HLDec => {
                 let address = register.get_u16();
-                register.update_u16(&|hl| hl - 1);
+                register.update_u16(&|hl| hl.wrapping_sub(1));
                 address
             },
             _ => register.get_u16(),
         }
     }
+
+    fn push_stack_16(&mut self, memory: &mut Memory, value: u16) {
+        let sp = self.registers.sp_mut();
+        sp.update(|sp| sp.wrapping_sub(1));
+
+        memory.write_memory(sp.get(), u16_msb(value));
+        memory.write_memory(sp.get(), u16_lsb(value));
+    }
 }
 
 fn u16_le(lsb: u8, msb: u8) -> u16 {
     ((msb as u16) << 8) | lsb as u16
+}
+
+fn u16_lsb(value: u16) -> u8 {
+    value as u8
+}
+
+fn u16_msb(value: u16) -> u8 {
+    (value >> 8) as u8
 }
 
 

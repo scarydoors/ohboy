@@ -187,6 +187,7 @@ instructions!(
     Nop,
     DisableInterrupts,
     Halt,
+    CallFunction | { address: u16 },
     JumpImmediate | { address: u16 },
     JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
@@ -208,8 +209,9 @@ impl RawInstruction {
     pub fn new(opcode: u8) -> Result<Self, CpuError> {
         match opcode {
             0x00 => Ok(Self::Nop),
-            0xC3 => Ok(Self::JumpImmediate),
             0xF3 => Ok(Self::DisableInterrupts),
+            0xCD => Ok(Self::CallFunction),
+            0xC3 => Ok(Self::JumpImmediate),
             byte_permutations!("0b1010_1xxx") => {
                 let idx = match_bits!(opcode, "0b1010_1xxx");
                 let operand = Operand3::new(idx).unwrap();
@@ -287,6 +289,7 @@ impl std::fmt::Display for Instruction {
             Nop => write!(f, "nop"),
             Halt => write!(f, "halt"),
             DisableInterrupts => write!(f, "di"),
+            CallFunction { address } => write!(f, "call {:#x}", address),
             JumpImmediate { address } => write!(f, "jp {:#x}", address),
             JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
             XorRegister { operand } => write!(f, "xor {}", operand),
