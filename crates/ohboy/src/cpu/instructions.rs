@@ -211,6 +211,7 @@ instructions!(
         LoadAccumulatorToIndirectC,
         LoadAccumulatorToMemory | { immediate: u16 },
         CompareImmediate | { immediate: u8 },
+        AddRegister { operand: Operand3 },
         BitwiseAndImmediate | { immediate: u8 },
         BitwiseOrRegister { operand: Operand3 },
         BitwiseAndRegister { operand: Operand3 },
@@ -315,6 +316,11 @@ impl RawInstruction {
             0xFE => {
                 Ok(Self::CompareImmediate)
             },
+            byte_permutations!("0b1000_0xxx") => {
+                let idx = match_bits!(opcode, "0b1000_0xxx");
+                let operand = Operand3::new(idx).unwrap();
+                Ok(Self::AddRegister { operand })
+            }
             0xE6 => {
                 Ok(Self::BitwiseAndImmediate)
             },
@@ -370,6 +376,7 @@ impl std::fmt::Display for Instruction {
             LoadHighMemoryToAccumulator { immediate } => write!(f, "ldh a, {:#x}", immediate),
             LoadAccumulatorToMemory { immediate } => write!(f, "ld {:#x}, a", immediate),
             CompareImmediate { immediate } => write!(f, "cp {:#x}", immediate),
+            AddRegister { operand } => write!(f, "add {}", operand),
             BitwiseAndImmediate { immediate } => write!(f, "and {:#x}", immediate),
             BitwiseOrRegister { operand } => write!(f, "or {}", operand),
             BitwiseAndRegister { operand } => write!(f, "and {}", operand),

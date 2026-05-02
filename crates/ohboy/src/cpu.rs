@@ -139,7 +139,12 @@ impl Cpu {
                         f
                     });
 
-                    (MachineCycle(1), Instruction::IncRegister8 { operand })
+                    let machine_cycle = match operand {
+                        Operand3::Register(_) => MachineCycle(1),
+                        Operand3::IndirectHL => MachineCycle(3),
+                    };
+
+                    (machine_cycle, Instruction::IncRegister8 { operand })
                 },
                 RawInstruction::DecRegister8 { operand } => {
                     let SubCarryResult { result, half_carry, .. } = match operand {
@@ -269,6 +274,39 @@ impl Cpu {
                     });
 
                     (MachineCycle(2), Instruction::CompareImmediate { immediate })
+                },
+                RawInstruction::AddRegister { operand } => {
+                    let AddCarryResult { result, carry, half_carry } = match operand {
+                        Operand3::Register(r) => {
+                            let register = self.registers.get_short_register_mut(r);
+                            let result = add_carry(register.get_u8(), 1);
+                            register.set_u8(result.result);
+
+                            result
+                        },
+                        Operand3::IndirectHL => {
+                            let address = self.registers.hl().get_u16();
+                            let result = add_carry(memory.read_memory(address), 1);
+                            memory.write_memory(address, result.result);
+
+                            result
+                        },
+                    };
+
+                    self.registers.f_mut().update(|_| {
+                        let mut f = CpuFlags::empty();
+                        f.set(CpuFlags::ZERO, result == 0);
+                        f.set(CpuFlags::HALF_CARRY, half_carry);
+                        f.set(CpuFlags::CARRY, carry);
+                        f
+                    });
+
+                    let machine_cycle = match operand {
+                        Operand3::Register(_) => MachineCycle(1),
+                        Operand3::IndirectHL => MachineCycle(2),
+                    };
+
+                    (machine_cycle, Instruction::AddRegister { operand })
                 },
                 RawInstruction::BitwiseAndImmediate => {
                     let immediate = self.consume_pc_u8(memory);
