@@ -113,7 +113,7 @@ impl Cpu {
                         f
                     });
 
-                    (MachineCycle(1), Instruction::DecRegister8 { operand })
+                    (MachineCycle(1), Instruction::IncRegister8 { operand })
                 },
                 RawInstruction::DecRegister8 { operand } => {
                     let SubCarryResult { result, half_carry, .. } = match operand {
@@ -142,6 +142,39 @@ impl Cpu {
 
                     (MachineCycle(1), Instruction::DecRegister8 { operand })
                 },
+                RawInstruction::DecRegister16 { operand } => {
+                    let mut register = self.registers.get_word_register_mut(operand.register);
+                    register.update_u16(&|r| {
+                        r.wrapping_sub(1)
+                    });
+                    (MachineCycle(2), Instruction::DecRegister16 { operand })
+                },
+                RawInstruction::LoadRegisterToRegister { left_operand, right_operand } => {
+                    let right = match right_operand {
+                        Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
+                        Operand3::IndirectHL => {
+                            memory.read_memory(self.registers.hl().get_u16())
+                        },
+                    };
+
+                    match left_operand {
+                        Operand3::Register(r) => {
+                            self.registers.get_short_register_mut(r).set_u8(right);
+                        },
+                        Operand3::IndirectHL => {
+                            let address = self.registers.hl().get_u16();
+                            memory.write_memory(address, right);
+                        },
+                    }
+
+                    let machine_cycle = if matches!(left_operand, Operand3::IndirectHL) || matches!(right_operand, Operand3::IndirectHL) {
+                        MachineCycle(2)
+                    } else {
+                        MachineCycle(1)
+                    };
+
+                    (machine_cycle, Instruction::LoadRegisterToRegister { left_operand, right_operand })
+                }
                 RawInstruction::LoadAccumulatorToIndirect { operand } => {
                     let address = self.get_indirect_address(operand);
                     let a = self.registers.a().get();
@@ -152,16 +185,6 @@ impl Cpu {
                     let address = self.get_indirect_address(operand);
                     self.registers.a_mut().set(memory.read_memory(address));
                     (MachineCycle(2), Instruction::LoadIndirectToAccumulator { operand })
-                },
-                RawInstruction::LoadIndirectHLToRegister8 { operand } => {
-                    let address = self.registers.hl().get_u16();
-                    let val = memory.read_memory(address);
-                    match operand {
-                        Operand3::Register(r) => self.registers.get_short_register_mut(r).set_u8(val),
-                        Operand3::IndirectHL => memory.write_memory(address, val),
-                    };
-
-                    (MachineCycle(2), Instruction::LoadIndirectHLToRegister8 { operand })
                 },
                 RawInstruction::LoadImmediateToRegister8 { operand } => {
                     let immediate = self.consume_pc_u8(memory);
@@ -221,7 +244,7 @@ impl Cpu {
 
                     (MachineCycle(2), Instruction::CompareImmediate { immediate })
                 },
-                RawInstruction::BitwiseOr { operand } => {
+                RawInstruction::BitwiseOrRegister { operand } => {
                     let value = match operand {
                         Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
                         Operand3::IndirectHL => memory.read_memory(self.registers.hl().get_u16().into()),
@@ -234,12 +257,12 @@ impl Cpu {
                         z
                     });
 
-                    (MachineCycle(1), Instruction::BitwiseOr { operand })
+                    (MachineCycle(1), Instruction::BitwiseOrRegister { operand })
                 },
                 i => unimplemented!("unsupported instruction {:?}", i)
             }
         } else {
-            panic!("{:?}\n{:?}\nunknown opcode {:x}!", memory.oam, memory.vram, opcode);
+            panic!("{:?}\n{:?}\nunknown opcode {:#x} {:x}!", memory.oam, memory.vram, self.registers.pc().get(), opcode);
         }
     }
 

@@ -193,9 +193,10 @@ instructions!(
     XorRegister { operand: Operand3 },
     IncRegister8 { operand: Operand3 },
     DecRegister8 { operand: Operand3 },
+    DecRegister16 { operand: Operand2 },
+    LoadRegisterToRegister { left_operand: Operand3, right_operand: Operand3 },
     LoadAccumulatorToIndirect { operand: IndirectOperand },
     LoadIndirectToAccumulator { operand: IndirectOperand },
-    LoadIndirectHLToRegister8 { operand: Operand3 },
     LoadImmediateToRegister8 { operand: Operand3 } | { immediate: u8 },
     LoadImmediateToRegister16 { operand: Operand2 } | { immediate: u16 },
     LoadAccumulatorToHighMemory | { immediate: u8 },
@@ -203,7 +204,7 @@ instructions!(
     LoadAccumulatorToIndirectC,
     LoadAccumulatorToMemory | { immediate: u16 },
     CompareImmediate | { immediate: u8 },
-    BitwiseOr { operand: Operand3 },
+    BitwiseOrRegister { operand: Operand3 },
 );
 
 impl RawInstruction {
@@ -213,6 +214,11 @@ impl RawInstruction {
             0xF3 => Ok(Self::DisableInterrupts),
             0xCD => Ok(Self::CallFunction),
             0xC3 => Ok(Self::JumpImmediate),
+            byte_permutations!("0b0010_xx00") => {
+                let idx = match_bits!(opcode, "0b0010_xx00");
+                let operand = ConditionalOperand::new(idx).unwrap();
+                Ok(Self::JumpRelativeConditional { operand })
+            },
             byte_permutations!("0b1010_1xxx") => {
                 let idx = match_bits!(opcode, "0b1010_1xxx");
                 let operand = Operand3::new(idx).unwrap();
@@ -228,10 +234,26 @@ impl RawInstruction {
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::DecRegister8 { operand })
             },
-            byte_permutations!("0b0010_xx00") => {
-                let idx = match_bits!(opcode, "0b0010_xx00");
-                let operand = ConditionalOperand::new(idx).unwrap();
-                Ok(Self::JumpRelativeConditional { operand })
+            byte_permutations!("0b00xx_1011") => {
+                let idx = match_bits!(opcode, "0b00xx_1011");
+                let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
+                Ok(Self::DecRegister16 { operand })
+            },
+            byte_permutations!("0b01xx_xxxx") => {
+                let left_operand = {
+                    let idx = match_bits!(opcode, "0b01xx_x000");
+                    Operand3::new(idx).unwrap()
+                };
+                let right_operand = {
+                    let idx = match_bits!(opcode, "0b0100_0xxx");
+                    Operand3::new(idx).unwrap()
+                };
+
+                if let (Operand3::IndirectHL, Operand3::IndirectHL) = (left_operand, right_operand) {
+                    Ok(Self::Halt)
+                } else {
+                    Ok(Self::LoadRegisterToRegister { left_operand, right_operand })
+                }
             },
             byte_permutations!("0b00xx_0010") => {
                 let idx = match_bits!(opcode, "0b00xx_0010");
@@ -242,15 +264,6 @@ impl RawInstruction {
                 let idx = match_bits!(opcode, "0b00xx_1010");
                 let operand = IndirectOperand::new(idx).unwrap();
                 Ok(Self::LoadIndirectToAccumulator { operand })
-            },
-            byte_permutations!("0b01xx_x110") => {
-                let idx = match_bits!(opcode, "0b01xx_x110");
-                let operand = Operand3::new(idx).unwrap();
-                if let Operand3::IndirectHL = operand {
-                    Ok(Self::Halt)
-                } else {
-                    Ok(Self::LoadIndirectHLToRegister8 { operand })
-                }
             },
             byte_permutations!("0b00xx_x110") => {
                 let idx = match_bits!(opcode, "0b00xx_x110");
@@ -280,7 +293,7 @@ impl RawInstruction {
             byte_permutations!("0b1011_0xxx") => {
                 let idx = match_bits!(opcode, "0b1011_0xxx");
                 let operand = Operand3::new(idx).unwrap();
-                Ok(Self::BitwiseOr { operand })
+                Ok(Self::BitwiseOrRegister { operand })
             },
             _ => Err(CpuError::InvalidInstruction)
         }
@@ -301,9 +314,10 @@ impl std::fmt::Display for Instruction {
             XorRegister { operand } => write!(f, "xor {}", operand),
             IncRegister8 { operand } => write!(f, "inc {}", operand),
             DecRegister8 { operand } => write!(f, "dec {}", operand),
+            DecRegister16 { operand } => write!(f, "dec {}", operand),
+            LoadRegisterToRegister { left_operand, right_operand } => write!(f, "ld {}, {}", left_operand, right_operand),
             LoadAccumulatorToIndirect { operand } => write!(f, "ld {}, a", operand),
             LoadIndirectToAccumulator { operand } => write!(f, "ld a, {}", operand),
-            LoadIndirectHLToRegister8 { operand } => write!(f, "ld {}, [hl]", operand),
             LoadImmediateToRegister8 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
             LoadImmediateToRegister16 { operand, immediate } => write!(f, "ld {}, {:#x}", operand, immediate),
             LoadAccumulatorToHighMemory { immediate } => write!(f, "ldh {:#x}, a", immediate),
@@ -311,7 +325,7 @@ impl std::fmt::Display for Instruction {
             LoadHighMemoryToAccumulator { immediate } => write!(f, "ldh a, {:#x}", immediate),
             LoadAccumulatorToMemory { immediate } => write!(f, "ld {:#x}, a", immediate),
             CompareImmediate { immediate } => write!(f, "cp {:#x}", immediate),
-            BitwiseOr { operand } => write!(f, "or {}", operand),
+            BitwiseOrRegister { operand } => write!(f, "or {}", operand),
         }
     }
 }
