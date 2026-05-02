@@ -203,6 +203,7 @@ instructions!(
     LoadAccumulatorToIndirectC,
     LoadAccumulatorToMemory | { immediate: u16 },
     CompareImmediate | { immediate: u8 },
+    BitwiseOr { operand: Operand3 },
 );
 
 impl RawInstruction {
@@ -276,6 +277,11 @@ impl RawInstruction {
             0xFE => {
                 Ok(Self::CompareImmediate)
             },
+            byte_permutations!("0b1011_0xxx") => {
+                let idx = match_bits!(opcode, "0b1011_0xxx");
+                let operand = Operand3::new(idx).unwrap();
+                Ok(Self::BitwiseOr { operand })
+            },
             _ => Err(CpuError::InvalidInstruction)
         }
     }
@@ -305,6 +311,7 @@ impl std::fmt::Display for Instruction {
             LoadHighMemoryToAccumulator { immediate } => write!(f, "ldh a, {:#x}", immediate),
             LoadAccumulatorToMemory { immediate } => write!(f, "ld {:#x}, a", immediate),
             CompareImmediate { immediate } => write!(f, "cp {:#x}", immediate),
+            BitwiseOr { operand } => write!(f, "or {}", operand),
         }
     }
 }

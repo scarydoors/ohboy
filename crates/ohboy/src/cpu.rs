@@ -220,7 +220,22 @@ impl Cpu {
                     });
 
                     (MachineCycle(2), Instruction::CompareImmediate { immediate })
-                }
+                },
+                RawInstruction::BitwiseOr { operand } => {
+                    let value = match operand {
+                        Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
+                        Operand3::IndirectHL => memory.read_memory(self.registers.hl().get_u16().into()),
+                    };
+                    let result = self.registers.a_mut().update(|a| a | value);
+
+                    self.registers.f_mut().update(|_| {
+                        let mut z = CpuFlags::empty();
+                        z.set(CpuFlags::ZERO, result == 0);
+                        z
+                    });
+
+                    (MachineCycle(1), Instruction::BitwiseOr { operand })
+                },
                 i => unimplemented!("unsupported instruction {:?}", i)
             }
         } else {
