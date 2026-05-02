@@ -88,7 +88,7 @@ impl Cpu {
 
                     (machine_cycle, Instruction::XorRegister { operand })
                 },
-                RawInstruction::IncRegister { operand } => {
+                RawInstruction::IncRegister8 { operand } => {
                     let AddCarryResult { result, half_carry, .. } = match operand {
                         Operand3::Register(r) => {
                             let register = self.registers.get_short_register_mut(r);
@@ -113,9 +113,9 @@ impl Cpu {
                         f
                     });
 
-                    (MachineCycle(1), Instruction::DecRegister { operand })
+                    (MachineCycle(1), Instruction::DecRegister8 { operand })
                 },
-                RawInstruction::DecRegister { operand } => {
+                RawInstruction::DecRegister8 { operand } => {
                     let SubCarryResult { result, half_carry, .. } = match operand {
                         Operand3::Register(r) => {
                             let register = self.registers.get_short_register_mut(r);
@@ -140,7 +140,7 @@ impl Cpu {
                         f
                     });
 
-                    (MachineCycle(1), Instruction::DecRegister { operand })
+                    (MachineCycle(1), Instruction::DecRegister8 { operand })
                 },
                 RawInstruction::LoadAccumulatorToIndirect { operand } => {
                     let address = self.get_indirect_address(operand);

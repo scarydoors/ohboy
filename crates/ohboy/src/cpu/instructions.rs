@@ -191,8 +191,8 @@ instructions!(
     JumpImmediate | { address: u16 },
     JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
     XorRegister { operand: Operand3 },
-    IncRegister { operand: Operand3 },
-    DecRegister { operand: Operand3 },
+    IncRegister8 { operand: Operand3 },
+    DecRegister8 { operand: Operand3 },
     LoadAccumulatorToIndirect { operand: IndirectOperand },
     LoadIndirectToAccumulator { operand: IndirectOperand },
     LoadIndirectHLToRegister8 { operand: Operand3 },
@@ -221,12 +221,12 @@ impl RawInstruction {
             byte_permutations!("0b00xx_x100") => {
                 let idx = match_bits!(opcode, "0b00xx_x100");
                 let operand = Operand3::new(idx).unwrap();
-                Ok(Self::IncRegister { operand })
+                Ok(Self::IncRegister8 { operand })
             },
             byte_permutations!("0b00xx_x101") => {
                 let idx = match_bits!(opcode, "0b00xx_x101");
                 let operand = Operand3::new(idx).unwrap();
-                Ok(Self::DecRegister { operand })
+                Ok(Self::DecRegister8 { operand })
             },
             byte_permutations!("0b0010_xx00") => {
                 let idx = match_bits!(opcode, "0b0010_xx00");
@@ -299,8 +299,8 @@ impl std::fmt::Display for Instruction {
             JumpImmediate { address } => write!(f, "jp {:#x}", address),
             JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
             XorRegister { operand } => write!(f, "xor {}", operand),
-            IncRegister { operand } => write!(f, "inc {}", operand),
-            DecRegister { operand } => write!(f, "dec {}", operand),
+            IncRegister8 { operand } => write!(f, "inc {}", operand),
+            DecRegister8 { operand } => write!(f, "dec {}", operand),
             LoadAccumulatorToIndirect { operand } => write!(f, "ld {}, a", operand),
             LoadIndirectToAccumulator { operand } => write!(f, "ld a, {}", operand),
             LoadIndirectHLToRegister8 { operand } => write!(f, "ld {}, [hl]", operand),
