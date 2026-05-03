@@ -196,7 +196,9 @@ instructions!(
         CallFunction | { address: u16 },
         ReturnFunction,
         PopStackToRegister { operand: Operand2 },
+        PushRegisterToStack { operand: Operand2 },
         JumpImmediate | { address: u16 },
+        JumpHL,
         JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
         XorRegister { operand: Operand3 },
         IncRegister8 { operand: Operand3 },
@@ -247,7 +249,13 @@ impl RawInstruction {
                 let operand = Operand2::new(idx, LastOperand2::AF).unwrap();
                 Ok(Self::PopStackToRegister { operand })
             },
+            byte_permutations!("0b11xx_0101") => {
+                let idx = match_bits!(opcode, "0b11xx_0101");
+                let operand = Operand2::new(idx, LastOperand2::AF).unwrap();
+                Ok(Self::PushRegisterToStack { operand })
+            },
             0xC3 => Ok(Self::JumpImmediate),
+            0xE9 => Ok(Self::JumpHL),
             byte_permutations!("0b0010_xx00") => {
                 let idx = match_bits!(opcode, "0b0010_xx00");
                 let operand = ConditionalOperand::new(idx).unwrap();
@@ -378,8 +386,10 @@ impl std::fmt::Display for Instruction {
             DisableInterrupts => write!(f, "di"),
             CallFunction { address } => write!(f, "call {:#x}", address),
             PopStackToRegister { operand } => write!(f, "pop {}", operand),
+            PushRegisterToStack { operand } => write!(f, "push {}", operand),
             ReturnFunction => write!(f, "ret"),
             JumpImmediate { address } => write!(f, "jp {:#x}", address),
+            JumpHL => write!(f, "jp hl"),
             JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
             XorRegister { operand } => write!(f, "xor {}", operand),
             IncRegister8 { operand } => write!(f, "inc {}", operand),

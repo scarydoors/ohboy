@@ -60,6 +60,12 @@ impl Cpu {
                     self.registers.pc_mut().set(address);
                     (MachineCycle(4), Instruction::JumpImmediate { address })
                 },
+                RawInstruction::JumpHL => {
+                    let address = self.registers.hl().get_u16();
+
+                    self.registers.pc_mut().set(address);
+                    (MachineCycle(1), Instruction::JumpHL)
+                },
                 RawInstruction::EnableInterrupts => {
                     // TODO: actually enable interrupts
                     self.pending_interrupt_enable = true;
@@ -83,6 +89,12 @@ impl Cpu {
                     self.registers.get_word_register_mut(operand.register).set_u16(popped);
 
                     (MachineCycle(3), Instruction::PopStackToRegister { operand })
+                },
+                RawInstruction::PushRegisterToStack { operand } => {
+                    let value = self.registers.get_word_register(operand.register).get_u16();
+                    self.push_stack(memory, value);
+
+                    (MachineCycle(4), Instruction::PushRegisterToStack { operand })
                 },
                 RawInstruction::ReturnFunction => {
                     let popped = self.pop_stack(memory);
