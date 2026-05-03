@@ -144,6 +144,20 @@ impl std::fmt::Display for IndirectOperand {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct BitIndexOperand(pub u8);
+
+impl BitIndexOperand {
+    pub fn new(i: u8) -> Result<Self, OperandTooWide> {
+        if i > 7 { 
+            Err(OperandTooWide)
+        } else {
+            Ok(Self(i))
+        }
+    }
+}
+
+
 macro_rules! instructions {
     (@full $enum_name:ident [$($variant:tt)*]) => {
         #[derive(Clone, Copy, Debug)]
@@ -232,6 +246,7 @@ instructions!(
         full: CBInstruction,
     },
     instructions: {
+        RegisterResetBit { bit_operand: BitIndexOperand, operand: Operand3 },
         SwapNibbles { operand: Operand3 },
     },
 );
@@ -421,6 +436,18 @@ impl std::fmt::Display for Instruction {
 impl RawCBInstruction {
     pub fn new(opcode: u8) -> Result<Self, CpuError> {
         match opcode {
+            byte_permutations!("0b10xx_xxxx") => {
+                let operand = {
+                    let idx = match_bits!(opcode, "0b10000xxx");
+                    Operand3::new(idx).unwrap()
+                };
+                let bit_operand = {
+                    let idx = match_bits!(opcode, "0b10xx_x000");
+                    BitIndexOperand::new(idx).unwrap()
+                };
+
+                Ok(Self::RegisterResetBit { bit_operand, operand })
+            },
             byte_permutations!("0b0011_0xxx") => {
                 let idx = match_bits!(opcode, "0b0011_0xxx");
                 let operand = Operand3::new(idx).unwrap();
@@ -436,6 +463,7 @@ impl std::fmt::Display for CBInstruction {
         use CBInstruction::*;
 
         match self {
+            RegisterResetBit { bit_operand, operand } => write!(f, "res {}, {}", bit_operand.0, operand),
             SwapNibbles { operand } => write!(f, "swap {}", operand),
         }
     }

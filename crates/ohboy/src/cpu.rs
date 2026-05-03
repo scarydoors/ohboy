@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::{cpu::{instructions::{AnyInstruction, CBInstruction, ConditionalOperand, IndirectOperand, Instruction, Operand3, RawCBInstruction, RawInstruction}, register::{ByteRegisterWrite, CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, emulator::MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
+use crate::{cpu::{instructions::{AnyInstruction, BitIndexOperand, CBInstruction, ConditionalOperand, IndirectOperand, Instruction, Operand3, RawCBInstruction, RawInstruction}, register::{ByteRegisterWrite, CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, emulator::MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
 //PC 0x2817 is when tiles are loaded probably
 pub mod register;
@@ -34,9 +34,9 @@ impl Cpu {
     }
 
     pub fn cycle(&mut self, memory: &mut Memory) -> Result<(MachineCycle, AnyInstruction), CpuError> {
-        if self.registers.pc().get() == 0x2817 {
-            panic!("should have tiles");
-        }
+        // if self.registers.pc().get() == 0x2817 {
+        //     panic!("should have tiles:\noam: {:?}, vram: {:?}", memory.oam, memory.vram,);
+        // }
         let opcode = self.consume_pc_u8(memory);
         let (machine_cycle, instruction) = self.execute(memory, opcode)?;
         Ok(match instruction {
@@ -421,6 +421,27 @@ impl Cpu {
     fn execute_cb_prefix(&mut self, memory: &mut Memory, opcode: u8) -> Result<(MachineCycle, CBInstruction), CpuError> {
         Ok(
             match RawCBInstruction::new(opcode)? {
+                RawCBInstruction::RegisterResetBit { bit_operand, operand } => {
+                    match operand {
+                        Operand3::Register(r) => {
+                            self.registers.get_short_register_mut(r).update_u8(&|r| {
+                                reset_bit(r, bit_operand)
+                            });
+                        },
+                        Operand3::IndirectHL => {
+                            let address = self.registers.hl().get_u16();
+                            let value = memory.read_memory(address);
+                            memory.write_memory(address, reset_bit(value, bit_operand));
+                        },
+                    }
+
+                    let machine_cycle = match operand {
+                        Operand3::Register(_) => MachineCycle(2),
+                        Operand3::IndirectHL => MachineCycle(4),
+                    };
+
+                    (machine_cycle, CBInstruction::RegisterResetBit { bit_operand, operand })
+                },
                 RawCBInstruction::SwapNibbles { operand } => {
                     let result = match operand {
                         Operand3::Register(r) => {
@@ -571,4 +592,8 @@ fn is_half_carry_16(a: u16, b: u16, result: u16) -> bool {
 
 fn high_address(low: u8) -> u16 {
     0xFF00 | (low as u16)
+}
+
+fn reset_bit(value: u8, position: BitIndexOperand) -> u8 {
+    value & !(1 << position.0)
 }

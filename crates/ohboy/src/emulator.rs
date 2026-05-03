@@ -27,7 +27,9 @@ impl Emulator {
                     println!("{:#x}: {}", pc, instruction);
                     machine_cycle
                 },
-                Err(e) => panic!("{}", e),
+                Err(e) => {
+                    panic!("{}, should have tiles:\noam: {:?}, vram: {:?}", e, self.memory.oam, self.memory.vram,);
+                }
             };
             if self.ppu.step(&mut self.memory, machine_cycle.into()) {
                 return
