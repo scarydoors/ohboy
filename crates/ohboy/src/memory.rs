@@ -15,7 +15,7 @@ pub trait ReadWriteMemory: ReadMemory + WriteMemory {}
 impl<T: ReadMemory + WriteMemory> ReadWriteMemory for T {}
 
 #[derive(Debug)]
-pub struct MemoryRegion<const N: usize, const START: u16, const END: u16>([u8; N]);
+pub struct MemoryRegion<const N: usize, const START: u16, const END: u16>(pub [u8; N]);
 
 impl<const N: usize, const START: u16, const END: u16> MemoryRegion<N, START, END> {
     const SIZE: usize = {
