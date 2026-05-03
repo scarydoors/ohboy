@@ -200,6 +200,7 @@ instructions!(
         JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
         XorRegister { operand: Operand3 },
         IncRegister8 { operand: Operand3 },
+        IncRegister16 { operand: Operand2 },
         DecRegister8 { operand: Operand3 },
         DecRegister16 { operand: Operand2 },
         LoadRegisterToRegister { left_operand: Operand3, right_operand: Operand3 },
@@ -261,6 +262,11 @@ impl RawInstruction {
                 let idx = match_bits!(opcode, "0b00xx_x100");
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::IncRegister8 { operand })
+            },
+            byte_permutations!("0b00xx_0011") => {
+                let idx = match_bits!(opcode, "0b00xx_0011");
+                let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
+                Ok(Self::IncRegister16 { operand })
             },
             byte_permutations!("0b00xx_x101") => {
                 let idx = match_bits!(opcode, "0b00xx_x101");
@@ -377,6 +383,7 @@ impl std::fmt::Display for Instruction {
             JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
             XorRegister { operand } => write!(f, "xor {}", operand),
             IncRegister8 { operand } => write!(f, "inc {}", operand),
+            IncRegister16 { operand } => write!(f, "inc {}", operand),
             DecRegister8 { operand } => write!(f, "dec {}", operand),
             DecRegister16 { operand } => write!(f, "dec {}", operand),
             LoadRegisterToRegister { left_operand, right_operand } => write!(f, "ld {}, {}", left_operand, right_operand),

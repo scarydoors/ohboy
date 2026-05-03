@@ -152,6 +152,13 @@ impl Cpu {
 
                     (machine_cycle, Instruction::IncRegister8 { operand })
                 },
+                RawInstruction::IncRegister16 { operand } => {
+                    let mut register = self.registers.get_word_register_mut(operand.register);
+                    register.update_u16(&|r| {
+                        r.wrapping_add(1)
+                    });
+                    (MachineCycle(2), Instruction::IncRegister16 { operand })
+                },
                 RawInstruction::DecRegister8 { operand } => {
                     let SubCarryResult { result, half_carry, .. } = match operand {
                         Operand3::Register(r) => {
