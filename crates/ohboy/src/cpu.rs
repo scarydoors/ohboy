@@ -124,14 +124,14 @@ impl Cpu {
                     let AddCarryResult { result, half_carry, .. } = match operand {
                         Operand3::Register(r) => {
                             let register = self.registers.get_short_register_mut(r);
-                            let result = add_carry(register.get_u8(), 1);
+                            let result = add_carry_8(register.get_u8(), 1);
                             register.set_u8(result.result);
 
                             result
                         },
                         Operand3::IndirectHL => {
                             let address = self.registers.hl().get_u16();
-                            let result = add_carry(memory.read_memory(address), 1);
+                            let result = add_carry_8(memory.read_memory(address), 1);
                             memory.write_memory(address, result.result);
 
                             result
@@ -285,14 +285,14 @@ impl Cpu {
                     let AddCarryResult { result, carry, half_carry } = match operand {
                         Operand3::Register(r) => {
                             let register = self.registers.get_short_register_mut(r);
-                            let result = add_carry(register.get_u8(), 1);
+                            let result = add_carry_8(register.get_u8(), 1);
                             register.set_u8(result.result);
 
                             result
                         },
                         Operand3::IndirectHL => {
                             let address = self.registers.hl().get_u16();
-                            let result = add_carry(memory.read_memory(address), 1);
+                            let result = add_carry_8(memory.read_memory(address), 1);
                             memory.write_memory(address, result.result);
 
                             result
@@ -367,6 +367,21 @@ impl Cpu {
                         f
                     });
                     (MachineCycle(1), Instruction::ComplementAccumulator)
+                },
+                RawInstruction::AddRegisterToHL { operand } => {
+                    let value =  self.registers.get_word_register(operand.register).get_u16();
+
+                    let mut hl = self.registers.hl_mut();
+                    let AddCarryResult { result, half_carry, carry } = add_carry_16(hl.get_u16(), value);
+                    hl.set_u16(result);
+
+                    self.registers.f_mut().update(|mut f| {
+                        f.set(CpuFlags::HALF_CARRY, half_carry);
+                        f.set(CpuFlags::CARRY, carry);
+                        f.remove(CpuFlags::SUB);
+                        f
+                    });
+                    (MachineCycle(2), Instruction::AddRegisterToHL { operand })
                 },
                 RawInstruction::Restart { address } => {
                     self.push_stack(memory, self.registers.pc().get());
@@ -509,17 +524,26 @@ fn swap_nibbles(value: u8) -> u8 {
 struct SubCarryResult { result: u8, carry: bool, half_carry: bool }
 fn sub_carry(a: u8, b: u8) -> SubCarryResult {
     let (result, carry) = a.overflowing_sub(b);
-    return SubCarryResult { result, carry, half_carry: is_half_carry(a, b, result) }
+    return SubCarryResult { result, carry, half_carry: is_half_carry_8(a, b, result) }
 }
 
-struct AddCarryResult { result: u8, carry: bool, half_carry: bool }
-fn add_carry(a: u8, b: u8) -> AddCarryResult {
+struct AddCarryResult<T> { result: T, carry: bool, half_carry: bool }
+fn add_carry_8(a: u8, b: u8) -> AddCarryResult<u8> {
     let (result, carry) = a.overflowing_add(b);
-    return AddCarryResult { result, carry, half_carry: is_half_carry(a, b, result) }
+    return AddCarryResult { result, carry, half_carry: is_half_carry_8(a, b, result) }
 }
 
-fn is_half_carry(a: u8, b: u8, result: u8) -> bool {
+fn add_carry_16(a: u16, b: u16) -> AddCarryResult<u16> {
+    let (result, carry) = a.overflowing_add(b);
+    return AddCarryResult { result, carry, half_carry: is_half_carry_16(a, b, result) }
+}
+
+fn is_half_carry_8(a: u8, b: u8, result: u8) -> bool {
     (a ^ b ^ result) & 0x10 == 0x10
+}
+
+fn is_half_carry_16(a: u16, b: u16, result: u16) -> bool {
+    (a ^ b ^ result) & 0x1000 == 0x1000 
 }
 
 fn high_address(low: u8) -> u16 {
