@@ -301,22 +301,23 @@ impl Cpu {
                     (MachineCycle(2), Instruction::CompareImmediate { immediate })
                 },
                 RawInstruction::AddRegister { operand } => {
+                    let a = self.registers.a_mut().get();
                     let AddCarryResult { result, carry, half_carry } = match operand {
                         Operand3::Register(r) => {
-                            let register = self.registers.get_short_register_mut(r);
-                            let result = add_carry_8(register.get_u8(), 1);
-                            register.set_u8(result.result);
+                            let value = self.registers.get_short_register(r).get_u8();
+                            let result = add_carry_8(value, a);
 
                             result
                         },
                         Operand3::IndirectHL => {
                             let address = self.registers.hl().get_u16();
-                            let result = add_carry_8(memory.read_memory(address), 1);
-                            memory.write_memory(address, result.result);
+                            let value = memory.read_memory(address);
+                            let result = add_carry_8(value, a);
 
                             result
                         },
                     };
+                    self.registers.a_mut().set(result);
 
                     self.registers.f_mut().update(|_| {
                         let mut f = CpuFlags::empty();
