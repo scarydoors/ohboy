@@ -78,6 +78,12 @@ impl Cpu {
 
                     (MachineCycle(6), Instruction::CallFunction { address })
                 },
+                RawInstruction::PopStackToRegister { operand } => {
+                    let popped = self.pop_stack(memory);
+                    self.registers.get_word_register_mut(operand.register).set_u16(popped);
+
+                    (MachineCycle(3), Instruction::PopStackToRegister { operand })
+                },
                 RawInstruction::ReturnFunction => {
                     let popped = self.pop_stack(memory);
                     self.registers.pc_mut().set(popped);
