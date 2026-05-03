@@ -218,6 +218,7 @@ instructions!(
         BitwiseAndRegister { operand: Operand3 },
         ComplementAccumulator,
         Restart { address: u8 },
+        AddRegisterToHL { operand: Operand2 },
         CBPrefix,
     },
 );
@@ -347,6 +348,11 @@ impl RawInstruction {
                 let address_8th = match_bits!(opcode, "0b11xxx111");
                 Ok(Self::Restart { address: address_8th * 8 })
             },
+            byte_permutations!("0b00xx_1001") => {
+                let idx = match_bits!(opcode, "0b00xx_1001");
+                let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
+                Ok(Self::AddRegisterToHL { operand })
+            }
             0xCB => {
                 Ok(Self::CBPrefix)
             },
@@ -388,6 +394,7 @@ impl std::fmt::Display for Instruction {
             BitwiseOrRegister { operand } => write!(f, "or {}", operand),
             BitwiseAndRegister { operand } => write!(f, "and {}", operand),
             ComplementAccumulator => write!(f, "cpl"),
+            AddRegisterToHL { operand } => write!(f, "add hl, {}", operand),
             Restart { address } => write!(f, "rst {:#x}", address),
             _ => Err(std::fmt::Error)
         }
