@@ -426,7 +426,7 @@ impl RawCBInstruction {
                 let operand = Operand3::new(idx).unwrap();
                 Ok(Self::SwapNibbles { operand })
             },
-            _ => Err(CpuError::InvalidInstruction { opcode })
+            _ => Err(CpuError::InvalidCBInstruction { opcode })
         }
     }
 }

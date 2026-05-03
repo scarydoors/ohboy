@@ -12,6 +12,9 @@ mod instructions;
 pub enum CpuError {
     #[error("unknown opcode: {opcode:#x}")]
     InvalidInstruction { opcode: u8 },
+
+    #[error("unknown cb-prefixed opcode: {opcode:#x}")]
+    InvalidCBInstruction { opcode: u8 },
 }
 
 pub struct Cpu {
