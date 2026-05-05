@@ -1,8 +1,35 @@
-use crate::emulator::{cpu::{instructions::{AnyInstruction, BitIndexOperand, CBInstruction, ConditionalOperand, IndirectOperand, Instruction, Operand3, RawCBInstruction, RawInstruction}, register::{ByteRegisterWrite, CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
+use crate::emulator::{
+    cpu::{
+        instructions::{
+            AnyInstruction,
+            BitIndexOperand,
+            CBInstruction,
+            ConditionalOperand,
+            IndirectOperand,
+            Instruction,
+            Operand3,
+            RawCBInstruction,
+            RawInstruction
+        },
+        registers::{
+            Registers,
+            CpuFlags
+        }
+    },
+    register::{
+        ByteRegisterWrite,
+        WordRegisterRead,
+        WordRegisterWrite
+    },
+    MachineCycle,
+    memory::{
+        Memory,
+        ReadMemory,
+        WriteMemory
+    }
+};
 
-//PC 0x2817 is when tiles are loaded probably
-//
-pub mod register;
+pub mod registers;
 pub mod interrupt;
 mod instructions;
 
@@ -17,7 +44,7 @@ pub enum CpuError {
 }
 
 pub struct Cpu {
-    pub registers: register::Registers,
+    pub registers: registers::Registers,
 
     interrupt_master_enable: bool,
     pending_interrupt_enable: bool,

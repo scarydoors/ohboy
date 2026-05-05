@@ -11,6 +11,7 @@ mod memory;
 mod mbc;
 mod ppu;
 mod joypad;
+mod register;
 
 pub use crate::emulator::rom::Rom;
 

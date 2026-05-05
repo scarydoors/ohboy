@@ -1,10 +1,10 @@
-use crate::emulator::{cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}}};
+use crate::emulator::{cpu::{CpuError, registers::{ShortRegisterName, WordRegisterName}}};
 use ohboy_macro::{byte_permutations, match_bits};
 
 
 // TODO; figure out how to do the errors properly
 #[derive(Debug)]
-struct OperandTooWide;
+pub struct OperandTooWide;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Operand3 {

@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 
-use crate::emulator::{cpu::{interrupt, register::Register}, joypad::JoypadFlags, mbc, ppu::{LCDControlFlags, LCDStatusFlags}};
+use crate::emulator::{cpu::interrupt, register::Register, joypad::JoypadFlags, mbc, ppu::{LCDControlFlags, LCDStatusFlags}};
 
 pub trait ReadMemory {
     fn read_memory(&self, address: u16) -> u8;
