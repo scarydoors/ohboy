@@ -17,7 +17,6 @@ use crate::emulator::{
         }
     },
     register::{
-        ByteRegisterWrite,
         WordRegisterRead,
         WordRegisterWrite
     },
