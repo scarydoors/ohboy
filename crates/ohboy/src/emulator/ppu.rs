@@ -4,33 +4,33 @@ use crate::emulator::{TimeCycle, memory::Memory};
 
 bitflags! {
     #[derive(Default, Copy, Clone)]
-    pub struct LCDControlFlags: u8 {
-        const LCDAndPPUEnable = 1 << 7;
+    pub struct LcdControlFlags: u8 {
+        const LcdAndPpuEnable = 1 << 7;
         const WindowTileMapArea = 1 << 6;
         const WindowEnable = 1 << 5;
-        const BGAndWindowTileArea = 1 << 4;
-        const BGTileMapArea = 1 << 3;
-        const OBJSize = 1 << 2;
-        const OBJEnable = 1 << 1;
-        const BGAndWindowEnablePriority = 1;
+        const BgAndWindowTileArea = 1 << 4;
+        const BgTileMapArea = 1 << 3;
+        const ObjSize = 1 << 2;
+        const ObjEnable = 1 << 1;
+        const BgAndWindowEnablePriority = 1;
     }
 }
 
 bitflags! {
     #[derive(Default, Copy, Clone)]
-    pub struct LCDStatusFlags: u8 {
-        const LYCIntSelect = 1 << 6;
+    pub struct LcdStatusFlags: u8 {
+        const LycIntSelect = 1 << 6;
         const Mode2IntSelect = 1 << 5;
         const Mode1IntSelect = 1 << 4;
         const Mode0IntSelect = 1 << 3;
-        const LYCEqLY = 1 << 2;
-        const PPUMode = 0b11;
+        const LycEqLy = 1 << 2;
+        const PpuMode = 0b11;
     }
 }
 
-impl LCDStatusFlags {
+impl LcdStatusFlags {
     fn set_ppu_mode(&mut self, mode: PpuMode) {
-        self.remove(Self::PPUMode);
+        self.remove(Self::PpuMode);
         *self |= Self::from_bits_truncate(mode.into());
     }
 }

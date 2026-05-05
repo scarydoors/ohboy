@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 
-use crate::emulator::{cpu::interrupt, register::Register, joypad::JoypadFlags, mbc, ppu::{LCDControlFlags, LCDStatusFlags}};
+use crate::emulator::{cpu::interrupt, register::Register, joypad::JoypadFlags, mbc, ppu::{LcdControlFlags, LcdStatusFlags}};
 
 pub trait ReadMemory {
     fn read_memory(&self, address: u16) -> u8;
@@ -105,8 +105,8 @@ pub struct Memory {
     // TODO: flags for timer control
     pub timer_control: Register<u8>,
 
-    pub lcd_control: Register<LCDControlFlags>,
-    pub lcd_status: Register<LCDStatusFlags>,
+    pub lcd_control: Register<LcdControlFlags>,
+    pub lcd_status: Register<LcdStatusFlags>,
     pub lcd_y: Register<u8>,
     pub screen_y: Register<u8>,
     pub screen_x: Register<u8>,
