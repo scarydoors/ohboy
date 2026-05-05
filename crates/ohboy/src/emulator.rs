@@ -1,4 +1,3 @@
-use std::fmt::format;
 use std::fs::File;
 use std::io::Write;
 use std::mem::take;
@@ -55,40 +54,58 @@ impl From<MachineCycle> for TimeCycle {
 pub struct MachineCycle(pub usize);
 
 fn dump_tiles(memory: &Memory) {
-    let bytes = memory.vram.0.get(0..16).unwrap();
+    let bytes = memory.vram.0.get(0..(10*128)).unwrap();
 
-    let mut idxs = Vec::new();
-    for bytes in bytes.chunks_exact(2) {
-        let lsb = bytes[0];
-        let msb = bytes[1];
+    let mut tiles = Vec::new();
+    for tile_bytes in bytes.chunks_exact(16) {
+        let mut idxs = Vec::new();
+        for bytes in tile_bytes.chunks_exact(2) {
+            let lsb = bytes[0];
+            let msb = bytes[1];
 
-        for i in (0..8).rev() {
-            let lsb_bit = (lsb >> i) & 1;
-            let msb_bit = (msb >> i) & 1;
+            for i in (0..8).rev() {
+                let lsb_bit = (lsb >> i) & 1;
+                let msb_bit = (msb >> i) & 1;
 
-            idxs.push(msb_bit << 1 | lsb_bit);
+                idxs.push(msb_bit << 1 | lsb_bit);
+            }
         }
+        tiles.push(idxs);
     }
-    //panic!("{:?}", idxs);
 
     let mut out = File::create("tiles.ppm").expect("failed to create tiles.ppm");
     out.write(b"P3\n").unwrap();
-    out.write(b"8 8\n").unwrap();
+    out.write(format!("{} {}\n", 8 * 10, tiles.chunks(10).len() * 8 - 1).as_bytes()).unwrap();
     out.write(b"255\n").unwrap();
-    out.write(
-        idxs
-            .iter()
-            .fold(String::new(),
-                |mut acc, i| {
-                    acc += &idx_to_rgb(*i)
-                        .iter()
-                        .fold(String::new(), |acc, rgb| {
-                            format!("{}{} ", acc, rgb)
-                        });
-                    acc
+    for tile_row in tiles.chunks(10) {
+        for y in 0..8 {
+            println!("itered {y}");
+            for tile in tile_row {
+                let start_idx = y * 8;
+                let end_idx = (y * 8) + 8;
+                for tile_idx in &tile[start_idx..end_idx] {
+                    let rgb = idx_to_rgb(*tile_idx);
+                    out.write(format!("{} {} {} ", rgb[0], rgb[1], rgb[2]).as_bytes()).unwrap();
                 }
-            ).as_bytes()
-    ).unwrap();
+            }
+            out.write(b"\n").unwrap();
+        }
+    }
+    panic!("stop");
+    // out.write(
+    //     idxs
+    //         .iter()
+    //         .fold(String::new(),
+    //             |mut acc, i| {
+    //                 acc += &idx_to_rgb(*i)
+    //                     .iter()
+    //                     .fold(String::new(), |acc, rgb| {
+    //                         format!("{}{} ", acc, rgb)
+    //                     });
+    //                 acc
+    //             }
+    //         ).as_bytes()
+    // ).unwrap();
 }
 
 fn idx_to_rgb(idx: u8) -> [u8; 3] {
