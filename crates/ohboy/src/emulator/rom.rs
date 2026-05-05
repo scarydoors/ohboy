@@ -1,4 +1,4 @@
-use crate::mbc;
+use crate::emulator::mbc;
 
 #[derive(Clone)]
 pub struct Rom {

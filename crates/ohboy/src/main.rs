@@ -1,12 +1,7 @@
 use std::{env, fs::{self}, path, process::ExitCode};
 
-use crate::{cpu::Cpu, emulator::Emulator, rom::Rom};
+use crate::emulator::{Emulator, Rom};
 
-mod cpu;
-mod rom;
-mod memory;
-mod mbc;
-mod ppu;
 mod emulator;
 
 fn main() -> ExitCode {

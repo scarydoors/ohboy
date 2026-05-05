@@ -1,12 +1,17 @@
 use std::fs::File;
 use std::io::Write;
-use std::mem::take;
 
-use crate::mbc;
-use crate::memory::{Memory, ReadMemory};
-use crate::cpu::Cpu;
-use crate::ppu::Ppu;
-use crate::rom::Rom;
+use crate::emulator::memory::Memory;
+use crate::emulator::cpu::Cpu;
+use crate::emulator::ppu::Ppu;
+
+mod cpu;
+mod rom;
+mod memory;
+mod mbc;
+mod ppu;
+
+pub use crate::emulator::rom::Rom;
 
 pub struct Emulator {
     cpu: Cpu,

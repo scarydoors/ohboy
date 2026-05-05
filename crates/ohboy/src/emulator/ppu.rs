@@ -1,6 +1,6 @@
 use bitflags::{Flags, bitflags};
 
-use crate::{emulator::TimeCycle, memory::Memory};
+use crate::emulator::{TimeCycle, memory::Memory};
 
 bitflags! {
     #[derive(Default, Copy, Clone)]

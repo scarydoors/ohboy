@@ -1,4 +1,4 @@
-use crate::{memory::{ReadMemory, ReadWriteMemory, WriteMemory}, rom};
+use crate::emulator::{memory::{ReadMemory, WriteMemory}};
 
 pub struct RomOnly {
     rom_data: Vec<u8>

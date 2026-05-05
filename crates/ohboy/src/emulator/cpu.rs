@@ -1,8 +1,7 @@
-use core::panic;
-
-use crate::{cpu::{instructions::{AnyInstruction, BitIndexOperand, CBInstruction, ConditionalOperand, IndirectOperand, Instruction, Operand3, RawCBInstruction, RawInstruction}, register::{ByteRegisterWrite, CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, emulator::MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
+use crate::emulator::{cpu::{instructions::{AnyInstruction, BitIndexOperand, CBInstruction, ConditionalOperand, IndirectOperand, Instruction, Operand3, RawCBInstruction, RawInstruction}, register::{ByteRegisterWrite, CpuFlags, Registers, WordRegisterRead, WordRegisterWrite}}, MachineCycle, mbc, memory::{self, Memory, ReadMemory, WriteMemory}, rom};
 
 //PC 0x2817 is when tiles are loaded probably
+//
 pub mod register;
 pub mod interrupt;
 mod instructions;

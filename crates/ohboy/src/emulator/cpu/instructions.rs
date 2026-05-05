@@ -1,4 +1,4 @@
-use crate::{cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}}, emulator::MachineCycle};
+use crate::emulator::{cpu::{CpuError, register::{ShortRegisterName, WordRegisterName}}};
 use ohboy_macro::{byte_permutations, match_bits};
 
 
