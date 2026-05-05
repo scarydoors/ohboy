@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 
-use crate::emulator::{cpu::{interrupt::{self, EnableFlags, RequestFlags}, register::Register}, mbc, ppu::{LCDControlFlags, LCDStatusFlags}};
+use crate::emulator::{cpu::{interrupt, register::Register}, joypad::JoypadFlags, mbc, ppu::{LCDControlFlags, LCDStatusFlags}};
 
 pub trait ReadMemory {
     fn read_memory(&self, address: u16) -> u8;
@@ -93,7 +93,7 @@ pub struct Memory {
     pub oam: Oam,
 
     // TODO: flags for joypad!
-    pub joypad: Register<u8>,
+    pub joypad: Register<JoypadFlags>,
     // IO registers
     pub requested_interrupts: Register<interrupt::RequestFlags>,
 
@@ -128,7 +128,7 @@ impl Memory {
             wram: Default::default(),
             oam: Default::default(),
 
-            joypad: 0xCF.into(),
+            joypad: Register::from_bits_retain(0xCF),
 
             requested_interrupts: Register::from_bits_retain(0xE1),
 
@@ -163,7 +163,7 @@ impl ReadMemory for Memory {
             VRam::START..=VRam::END => self.vram.read_memory(address),
             WRam::START..=WRam::END => self.wram.read_memory(address),
             Oam::START..=Oam::END => self.oam.read_memory(address),
-            JOYPAD_ADDRESS => self.joypad.get(),
+            JOYPAD_ADDRESS => self.joypad.get().bits(),
             UNUSABLE_START_ADDRESS..=UNUSABLE_END_ADDRESS => 0,
             0xFF7F => 0,
             REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.get().bits(),
@@ -197,17 +197,17 @@ impl WriteMemory for Memory {
             VRam::START..=VRam::END => self.vram.write_memory(address, value),
             WRam::START..=WRam::END => self.wram.write_memory(address, value),
             Oam::START..=Oam::END => self.oam.write_memory(address, value),
-            JOYPAD_ADDRESS => self.joypad.set(value),
+            JOYPAD_ADDRESS => self.joypad.set_retain(value),
             UNUSABLE_START_ADDRESS..=UNUSABLE_END_ADDRESS => {},
             0xFF7F => {},
-            REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.set(RequestFlags::from_bits_truncate(value)),
+            REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.set_retain(value),
             AUDIO_START_ADDRESS..=AUDIO_END_ADDRESS => {},
             SERIAL_TRANSFER_DATA_ADDRESS => self.serial_transfer_data.set(value),
-            SERIAL_TRANSFER_CONTROL_ADDRESS => self.serial_transfer_control.set(SerialControlFlags::from_bits_truncate(value)),
+            SERIAL_TRANSFER_CONTROL_ADDRESS => self.serial_transfer_control.set_retain(value),
             TIMER_MODULO_ADDRESS => self.timer_modulo.set(value),
             TIMER_CONTROL_ADDRESS => self.timer_control.set(value),
-            LCD_CONTROL_ADDRESS => self.lcd_control.set(LCDControlFlags::from_bits_truncate(value)),
-            LCD_STATUS_ADDRESS => self.lcd_status.set(LCDStatusFlags::from_bits_truncate(value)),
+            LCD_CONTROL_ADDRESS => self.lcd_control.set_retain(value),
+            LCD_STATUS_ADDRESS => self.lcd_status.set_retain(value),
             SCREEN_Y_ADDRESS => self.screen_y.set(value),
             SCREEN_X_ADDRESS => self.screen_x.set(value),
             BG_PALETTE_ADDRESS => self.bg_palette.set(value),
@@ -216,7 +216,7 @@ impl WriteMemory for Memory {
             WINDOW_X_ADDRESS => self.window_x.set(value),
             WINDOW_Y_ADDRESS => self.window_y.set(value),
             HRam::START..=HRam::END => self.hram.write_memory(address, value),
-            ENABLED_INTERRUPTS_ADDRESS => self.enabled_interrupts.set(EnableFlags::from_bits_truncate(value)),
+            ENABLED_INTERRUPTS_ADDRESS => self.enabled_interrupts.set_retain(value),
             _ => unimplemented!("address: {:x}", address)
         }
     }

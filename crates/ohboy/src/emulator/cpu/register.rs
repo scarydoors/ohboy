@@ -214,6 +214,10 @@ impl<T: Copy + Flags> Register<T> {
     pub fn from_bits_retain(bits: T::Bits) -> Self {
         Self(T::from_bits_retain(bits))
     }
+
+    pub fn set_retain(&mut self, bits: T::Bits) {
+        self.0 = T::from_bits_retain(bits);
+    }
 }
 
 pub trait ByteRegisterRead {

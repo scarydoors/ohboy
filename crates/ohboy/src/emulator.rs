@@ -10,13 +10,15 @@ mod rom;
 mod memory;
 mod mbc;
 mod ppu;
+mod joypad;
 
 pub use crate::emulator::rom::Rom;
 
 pub struct Emulator {
     cpu: Cpu,
     ppu: Ppu,
-    memory: Memory
+    memory: Memory,
+    cycles: usize
 }
 
 impl Emulator {
@@ -25,11 +27,13 @@ impl Emulator {
             cpu: Cpu::new(),
             ppu: Ppu::new(),
             memory: Memory::new(mbc::create_mbc(rom)),
+            cycles: 0
         }
     }
 
     pub fn run_frame(&mut self) {
         loop {
+            self.cycles += 1;
             let pc = self.cpu.registers.pc.get();
             let machine_cycle = match self.cpu.cycle(&mut self.memory) {
                 Ok((machine_cycle, instruction)) => {
@@ -38,7 +42,7 @@ impl Emulator {
                 },
                 Err(e) => {
                     dump_tiles(&self.memory);
-                    panic!("{}, should have tiles:\noam: {:?}, vram: {:?}", e, self.memory.oam, self.memory.vram,);
+                    panic!("{}, should have tiles:\noam: {:?}, vram: {:?}, cycles: {}", e, self.memory.oam, self.memory.vram, self.cycles);
                 }
             };
             if self.ppu.step(&mut self.memory, machine_cycle.into()) {
@@ -84,7 +88,6 @@ fn dump_tiles(memory: &Memory) {
     out.write(b"255\n").unwrap();
     for tile_row in tiles.chunks(10) {
         for y in 0..8 {
-            println!("itered {y}");
             for tile in tile_row {
                 let start_idx = y * 8;
                 let end_idx = (y * 8) + 8;
@@ -96,7 +99,6 @@ fn dump_tiles(memory: &Memory) {
             out.write(b"\n").unwrap();
         }
     }
-    panic!("stop");
     // out.write(
     //     idxs
     //         .iter()
