@@ -54,12 +54,12 @@ impl From<MachineCycle> for TimeCycle {
 pub struct MachineCycle(pub usize);
 
 fn dump_tiles(memory: &Memory) {
-    let bytes = memory.vram.0.get(0..(10*128)).unwrap();
+    let bytes = memory.vram.0.get(0..(10*128*3)).unwrap();
 
     let mut tiles = Vec::new();
-    for tile_bytes in bytes.chunks_exact(16) {
+    for tile_bytes in bytes.chunks(16) {
         let mut idxs = Vec::new();
-        for bytes in tile_bytes.chunks_exact(2) {
+        for bytes in tile_bytes.chunks(2) {
             let lsb = bytes[0];
             let msb = bytes[1];
 
@@ -75,7 +75,7 @@ fn dump_tiles(memory: &Memory) {
 
     let mut out = File::create("tiles.ppm").expect("failed to create tiles.ppm");
     out.write(b"P3\n").unwrap();
-    out.write(format!("{} {}\n", 8 * 10, tiles.chunks(10).len() * 8 - 1).as_bytes()).unwrap();
+    out.write(format!("{} {}\n", 8 * 10, tiles.chunks(10).len() * 8).as_bytes()).unwrap();
     out.write(b"255\n").unwrap();
     for tile_row in tiles.chunks(10) {
         for y in 0..8 {
