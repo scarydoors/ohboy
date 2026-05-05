@@ -59,13 +59,13 @@ impl Cpu {
                 RawInstruction::JumpImmediate => {
                     let address = self.consume_pc_u16(memory);
 
-                    self.registers.pc_mut().set(address);
+                    self.registers.pc.set(address);
                     (MachineCycle(4), Instruction::JumpImmediate { address })
                 },
                 RawInstruction::JumpHL => {
                     let address = self.registers.hl().get_u16();
 
-                    self.registers.pc_mut().set(address);
+                    self.registers.pc.set(address);
                     (MachineCycle(1), Instruction::JumpHL)
                 },
                 RawInstruction::EnableInterrupts => {
@@ -81,8 +81,8 @@ impl Cpu {
                 RawInstruction::CallFunction => {
                     let address = self.consume_pc_u16(memory);
 
-                    self.push_stack(memory, self.registers.pc().get());
-                    self.registers.pc_mut().set(address);
+                    self.push_stack(memory, self.registers.pc.get());
+                    self.registers.pc.set(address);
 
                     (MachineCycle(6), Instruction::CallFunction { address })
                 },
@@ -100,14 +100,14 @@ impl Cpu {
                 },
                 RawInstruction::ReturnFunction => {
                     let popped = self.pop_stack(memory);
-                    self.registers.pc_mut().set(popped);
+                    self.registers.pc.set(popped);
 
                     (MachineCycle(4), Instruction::ReturnFunction)
                 },
                 RawInstruction::JumpRelativeConditional { operand } => {
                     let relative = self.consume_pc_i8(memory);
                     let machine_cycle = if self.check_condition(operand) {
-                        self.registers.pc_mut().update(|pc| pc.wrapping_add_signed(relative as i16));
+                        self.registers.pc.update(|pc| pc.wrapping_add_signed(relative as i16));
                         MachineCycle(3)
                     } else {
                         MachineCycle(2)
@@ -121,10 +121,10 @@ impl Cpu {
                         Operand3::IndirectHL => memory.read_memory(self.registers.hl().get_u16().into()),
                     };
 
-                    let result = self.registers.a_mut().update(|a| a ^ value);
+                    let result = self.registers.a.update(|a| a ^ value);
 
                     if result == 0 {
-                        self.registers.f_mut().set(CpuFlags::ZERO);
+                        self.registers.f.set(CpuFlags::ZERO);
                     }
 
                     let machine_cycle = match operand {
@@ -152,7 +152,7 @@ impl Cpu {
                         },
                     };
                     
-                    self.registers.f_mut().update(|mut f| {
+                    self.registers.f.update(|mut f| {
                         f.remove(CpuFlags::SUB);
                         f.set(CpuFlags::ZERO, result == 0);
                         f.set(CpuFlags::HALF_CARRY, half_carry);
@@ -191,7 +191,7 @@ impl Cpu {
                         },
                     };
                     
-                    self.registers.f_mut().update(|mut f| {
+                    self.registers.f.update(|mut f| {
                         f.insert(CpuFlags::SUB);
                         f.set(CpuFlags::ZERO, result == 0);
                         f.set(CpuFlags::HALF_CARRY, half_carry);
@@ -235,13 +235,13 @@ impl Cpu {
                 }
                 RawInstruction::LoadAccumulatorToIndirect { operand } => {
                     let address = self.get_indirect_address(operand);
-                    let a = self.registers.a().get();
+                    let a = self.registers.a.get();
                     memory.write_memory(address, a);
                     (MachineCycle(2), Instruction::LoadAccumulatorToIndirect { operand })
                 },
                 RawInstruction::LoadIndirectToAccumulator { operand } => {
                     let address = self.get_indirect_address(operand);
-                    self.registers.a_mut().set(memory.read_memory(address));
+                    self.registers.a.set(memory.read_memory(address));
                     (MachineCycle(2), Instruction::LoadIndirectToAccumulator { operand })
                 },
                 RawInstruction::LoadImmediateToRegister8 { operand } => {
@@ -263,14 +263,14 @@ impl Cpu {
                 RawInstruction::LoadAccumulatorToHighMemory => {
                     let immediate = self.consume_pc_u8(memory);
 
-                    memory.write_memory(high_address(immediate), self.registers.a().get());
+                    memory.write_memory(high_address(immediate), self.registers.a.get());
 
                     (MachineCycle(3), Instruction::LoadAccumulatorToHighMemory { immediate })
                 },
                 RawInstruction::LoadAccumulatorToMemory => {
                     let immediate = self.consume_pc_u16(memory);
 
-                    let a = self.registers.a().get();
+                    let a = self.registers.a.get();
                     memory.write_memory(immediate, a);
 
                     (MachineCycle(4), Instruction::LoadAccumulatorToMemory { immediate })
@@ -278,21 +278,21 @@ impl Cpu {
                 RawInstruction::LoadHighMemoryToAccumulator => {
                     let immediate = self.consume_pc_u8(memory);
 
-                    self.registers.a_mut().set(memory.read_memory(high_address(immediate)));
+                    self.registers.a.set(memory.read_memory(high_address(immediate)));
                     (MachineCycle(3), Instruction::LoadHighMemoryToAccumulator { immediate })
                 },
                 RawInstruction::LoadAccumulatorToIndirectC => {
-                    let address = high_address(self.registers.c().get());
-                    memory.write_memory(address, self.registers.a().get());
+                    let address = high_address(self.registers.c.get());
+                    memory.write_memory(address, self.registers.a.get());
 
                     (MachineCycle(2), Instruction::LoadAccumulatorToIndirectC)
                 },
                 RawInstruction::CompareImmediate => {
                     let immediate = self.consume_pc_u8(memory);
-                    let a = self.registers.a().get();
+                    let a = self.registers.a.get();
                     let SubCarryResult { result, carry, half_carry } = sub_carry(a, immediate);
 
-                    self.registers.f_mut().update(|mut f| {
+                    self.registers.f.update(|mut f| {
                         f.insert(CpuFlags::SUB);
                         f.set(CpuFlags::ZERO, result == 0);
                         f.set(CpuFlags::HALF_CARRY, half_carry);
@@ -303,7 +303,7 @@ impl Cpu {
                     (MachineCycle(2), Instruction::CompareImmediate { immediate })
                 },
                 RawInstruction::AddRegister { operand } => {
-                    let a = self.registers.a_mut().get();
+                    let a = self.registers.a.get();
                     let AddCarryResult { result, carry, half_carry } = match operand {
                         Operand3::Register(r) => {
                             let value = self.registers.get_short_register(r).get_u8();
@@ -319,9 +319,9 @@ impl Cpu {
                             result
                         },
                     };
-                    self.registers.a_mut().set(result);
+                    self.registers.a.set(result);
 
-                    self.registers.f_mut().update(|_| {
+                    self.registers.f.update(|_| {
                         let mut f = CpuFlags::empty();
                         f.set(CpuFlags::ZERO, result == 0);
                         f.set(CpuFlags::HALF_CARRY, half_carry);
@@ -339,9 +339,9 @@ impl Cpu {
                 RawInstruction::BitwiseAndImmediate => {
                     let immediate = self.consume_pc_u8(memory);
 
-                    let result = self.registers.a_mut().update(|a| a & immediate);
+                    let result = self.registers.a.update(|a| a & immediate);
 
-                    self.registers.f_mut().update(|_| {
+                    self.registers.f.update(|_| {
                         let mut z = CpuFlags::empty();
                         z.set(CpuFlags::ZERO, result == 0);
                         z.insert(CpuFlags::HALF_CARRY);
@@ -355,9 +355,9 @@ impl Cpu {
                         Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
                         Operand3::IndirectHL => memory.read_memory(self.registers.hl().get_u16().into()),
                     };
-                    let result = self.registers.a_mut().update(|a| a | value);
+                    let result = self.registers.a.update(|a| a | value);
 
-                    self.registers.f_mut().update(|_| {
+                    self.registers.f.update(|_| {
                         let mut z = CpuFlags::empty();
                         z.set(CpuFlags::ZERO, result == 0);
                         z
@@ -370,9 +370,9 @@ impl Cpu {
                         Operand3::Register(r) => self.registers.get_short_register(r).get_u8(),
                         Operand3::IndirectHL => memory.read_memory(self.registers.hl().get_u16().into()),
                     };
-                    let result = self.registers.a_mut().update(|a| a & value);
+                    let result = self.registers.a.update(|a| a & value);
 
-                    self.registers.f_mut().update(|_| {
+                    self.registers.f.update(|_| {
                         let mut z = CpuFlags::empty();
                         z.set(CpuFlags::ZERO, result == 0);
                         z.insert(CpuFlags::HALF_CARRY);
@@ -382,8 +382,8 @@ impl Cpu {
                     (MachineCycle(1), Instruction::BitwiseAndRegister { operand })
                 },
                 RawInstruction::ComplementAccumulator => {
-                    self.registers.a_mut().update(|a| !a);
-                    self.registers.f_mut().update(|mut f| {
+                    self.registers.a.update(|a| !a);
+                    self.registers.f.update(|mut f| {
                         f.insert(CpuFlags::SUB);
                         f.insert(CpuFlags::HALF_CARRY);
                         f
@@ -397,7 +397,7 @@ impl Cpu {
                     let AddCarryResult { result, half_carry, carry } = add_carry_16(hl.get_u16(), value);
                     hl.set_u16(result);
 
-                    self.registers.f_mut().update(|mut f| {
+                    self.registers.f.update(|mut f| {
                         f.set(CpuFlags::HALF_CARRY, half_carry);
                         f.set(CpuFlags::CARRY, carry);
                         f.remove(CpuFlags::SUB);
@@ -406,8 +406,8 @@ impl Cpu {
                     (MachineCycle(2), Instruction::AddRegisterToHL { operand })
                 },
                 RawInstruction::Restart { address } => {
-                    self.push_stack(memory, self.registers.pc().get());
-                    self.registers.pc_mut().set(address.into());
+                    self.push_stack(memory, self.registers.pc.get());
+                    self.registers.pc.set(address.into());
 
                     (MachineCycle(4), Instruction::Restart { address })
                 }
@@ -458,7 +458,7 @@ impl Cpu {
                         },
                     };
 
-                    self.registers.f_mut().update(|_| {
+                    self.registers.f.update(|_| {
                         let mut f = CpuFlags::empty();
                         f.set(CpuFlags::ZERO, result == 0);
                         f
@@ -471,7 +471,7 @@ impl Cpu {
     }
 
     fn check_condition(&self, operand: ConditionalOperand) -> bool {
-        let flags = self.registers.f().get();
+        let flags = self.registers.f.get();
         match operand {
             ConditionalOperand::NZ => !flags.contains(CpuFlags::ZERO),
             ConditionalOperand::Z => flags.contains(CpuFlags::ZERO),
@@ -481,7 +481,7 @@ impl Cpu {
     }
 
     fn consume_pc_u8(&mut self, memory: &mut Memory) -> u8 {
-        let pc = self.registers.pc_mut();
+        let pc = &mut self.registers.pc;
         let cur_pc = pc.get();
         pc.set(cur_pc.wrapping_add(1));
 
@@ -517,7 +517,7 @@ impl Cpu {
     }
 
     fn push_stack(&mut self, memory: &mut Memory, value: u16) {
-        let sp = self.registers.sp_mut();
+        let sp = &mut self.registers.sp;
         sp.update(|sp| sp.wrapping_sub(1));
         memory.write_memory(sp.get(), u16_msb(value));
         sp.update(|sp| sp.wrapping_sub(1));
@@ -525,7 +525,7 @@ impl Cpu {
     }
 
     fn pop_stack(&mut self, memory: &mut Memory) -> u16 {
-        let sp = self.registers.sp_mut();
+        let sp = &mut self.registers.sp;
        
         let lsb = memory.read_memory(sp.get());
         sp.update(|sp| sp.wrapping_add(1));

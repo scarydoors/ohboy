@@ -1,20 +1,20 @@
 use bitflags::{Flags, bitflags};
 
 pub struct Registers {
-    pc: Register<u16>,
-    sp: Register<u16>,
+    pub pc: Register<u16>,
+    pub sp: Register<u16>,
 
-    a: Register<u8>,
-    f: Register<CpuFlags>,
+    pub a: Register<u8>,
+    pub f: Register<CpuFlags>,
 
-    b: Register<u8>,
-    c: Register<u8>,
+    pub b: Register<u8>,
+    pub c: Register<u8>,
 
-    d: Register<u8>,
-    e: Register<u8>,
+    pub d: Register<u8>,
+    pub e: Register<u8>,
 
-    h: Register<u8>,
-    l: Register<u8>
+    pub h: Register<u8>,
+    pub l: Register<u8>
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -96,14 +96,14 @@ impl Registers {
         use ShortRegisterName::*;
 
         match r {
-            A => self.a(),
-            F => self.f(),
-            B => self.b(),
-            C => self.c(),
-            D => self.d(),
-            E => self.e(),
-            H => self.h(),
-            L => self.l(),
+            A => &self.a,
+            F => &self.f,
+            B => &self.b,
+            C => &self.c,
+            D => &self.d,
+            E => &self.e,
+            H => &self.h,
+            L => &self.l,
         }
     }
 
@@ -111,14 +111,14 @@ impl Registers {
         use ShortRegisterName::*;
 
         match r {
-            A => self.a_mut(),
-            F => self.f_mut(),
-            B => self.b_mut(),
-            C => self.c_mut(),
-            D => self.d_mut(),
-            E => self.e_mut(),
-            H => self.h_mut(),
-            L => self.l_mut(),
+            A => &mut self.a,
+            F => &mut self.f,
+            B => &mut self.b,
+            C => &mut self.c,
+            D => &mut self.d,
+            E => &mut self.e,
+            H => &mut self.h,
+            L => &mut self.l,
         }
     }
 
@@ -129,8 +129,8 @@ impl Registers {
             DE => self.de(),
             HL => self.hl(),
             AF => self.af(),
-            PC => WordRegisterRef::Single(self.pc()),
-            SP => WordRegisterRef::Single(self.sp()),
+            PC => WordRegisterRef::Single(&self.pc),
+            SP => WordRegisterRef::Single(&self.sp),
         }
     }
 
@@ -141,46 +141,11 @@ impl Registers {
             DE => self.de_mut(),
             HL => self.hl_mut(),
             AF => self.af_mut(),
-            PC => WordRegisterRefMut::Single(self.pc_mut()),
-            SP => WordRegisterRefMut::Single(self.sp_mut()),
+            PC => WordRegisterRefMut::Single(&mut self.pc),
+            SP => WordRegisterRefMut::Single(&mut self.sp),
         }
     }
 }
-
-macro_rules! impl_register_methods {
-    ($($register:ident: $register_ty:ty),*$(,)?) => {
-        paste::item! {
-                impl Registers {
-                $(
-                    pub fn $register(&self) -> &Register<$register_ty> {
-                        &self.$register 
-                    }
-                    
-                    pub fn [<$register _mut>](&mut self) -> &mut Register<$register_ty> {
-                        &mut self.$register
-                    }
-                )*
-                }
-        }
-    }
-}
-
-impl_register_methods!(
-    pc: u16,
-    sp: u16,
-
-    a: u8,
-    f: CpuFlags,
-
-    b: u8,
-    c: u8,
-
-    d: u8,
-    e: u8,
-
-    h: u8,
-    l: u8
-);
 
 macro_rules! impl_register_pair_methods {
     ($(($high:ident: $high_ty:ty, $low:ident: $low_ty:ty)),*$(,)?) => {

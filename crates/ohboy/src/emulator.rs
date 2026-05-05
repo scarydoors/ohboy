@@ -30,7 +30,7 @@ impl Emulator {
 
     pub fn run_frame(&mut self) {
         loop {
-            let pc = self.cpu.registers.pc().get();
+            let pc = self.cpu.registers.pc.get();
             let machine_cycle = match self.cpu.cycle(&mut self.memory) {
                 Ok((machine_cycle, instruction)) => {
                     println!("{:#x}: {}", pc, instruction);
