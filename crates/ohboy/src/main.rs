@@ -1,8 +1,11 @@
 use std::{env, fs::{self}, path, process::ExitCode};
 
-use crate::emulator::{Emulator, Rom};
+use winit::event_loop::{ControlFlow, EventLoop};
+
+use crate::{emulator::{Emulator, Rom}, ui::App};
 
 mod emulator;
+mod ui;
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
@@ -23,10 +26,17 @@ fn main() -> ExitCode {
     println!("SRAM size: {}KiB", rom.ram_size());
     println!("MBC type: {:?}", rom.cartridge_type());
 
-    let mut emulator = Emulator::new(&rom);
-    loop {
-        emulator.run_frame();
-    }
+    //let mut emulator = Emulator::new(&rom);
+    //loop {
+    //    emulator.run_frame();
+    //}
+    
+    let event_loop = EventLoop::new().unwrap();
+    event_loop.set_control_flow(ControlFlow::Wait);
+    let mut app = App::default();
+
+    app.load_rom(&rom);
+    event_loop.run_app(&mut app).unwrap();
 
     ExitCode::SUCCESS
 }
