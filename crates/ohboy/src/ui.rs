@@ -1,5 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
+use egui_winit::EventResponse;
+use wgpu::CommandEncoder;
 use winit::{application::ApplicationHandler, event::{KeyEvent, WindowEvent}, event_loop::ActiveEventLoop, keyboard::{KeyCode, PhysicalKey}, window::{Window, WindowId}};
 
 use crate::emulator::{Emulator, Rom};
@@ -32,6 +34,8 @@ impl ApplicationHandler for App {
             Some(r) => r,
             None => return,
         };
+
+        render_context.egui.handle_input(&render_context.window, &event);
 
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
@@ -79,7 +83,9 @@ pub struct RenderContext {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
+    egui: EguiRenderer,
     is_surface_configured: bool,
+
 }
 
 impl RenderContext {
@@ -131,12 +137,15 @@ impl RenderContext {
             desired_maximum_frame_latency: 2,
         };
 
+        let egui_renderer = EguiRenderer::new(&device, surface_format, &window);
+
         Ok(Self {
             window,
             surface,
             config,
             device,
             queue,
+            egui: egui_renderer,
             is_surface_configured: false
         })
     }
@@ -190,9 +199,9 @@ impl RenderContext {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            r: rand::random(),
+                            g: rand::random(),
+                            b: rand::random(),
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -206,9 +215,126 @@ impl RenderContext {
             });
         }
 
+        self.egui.begin_frame(&self.window);
+
+        egui::Window::new("winit + egui")
+            .resizable(true)
+            .vscroll(true)
+            .default_open(true)
+            .show(self.egui.context(), |ui| {
+                ui.label("what");
+            });
+
+        let screen_descriptor = egui_wgpu::ScreenDescriptor {
+            size_in_pixels: [self.config.width, self.config.height],
+            pixels_per_point: self.window.scale_factor() as f32,
+        };
+        self.egui.end_frame_and_draw(&self.device, &self.queue, &mut encoder, &self.window, &view, screen_descriptor);
+
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
         Ok(())
     }
 }
+
+struct EguiRenderer {
+    state: egui_winit::State,
+    renderer: egui_wgpu::Renderer,
+    frame_started: bool,
+}
+
+impl EguiRenderer {
+    pub fn new(
+        device: &wgpu::Device,
+        output_color_format: wgpu::TextureFormat,
+        window: &Window,
+    ) -> Self {
+        let context = egui::Context::default();
+
+        let state = egui_winit::State::new(
+            context,
+            egui::viewport::ViewportId::ROOT,
+            window,
+            Some(window.scale_factor() as f32),
+            None,
+            Some(2 * 1024) 
+        );
+
+        let renderer = egui_wgpu::Renderer::new(device, output_color_format, egui_wgpu::RendererOptions::default());
+
+        Self {
+            state,
+            renderer,
+            frame_started: false
+        }
+    }
+
+    pub fn begin_frame(&mut self, window: &Window) {
+        let raw_input = self.state.take_egui_input(window);
+        self.state.egui_ctx().begin_pass(raw_input);
+        self.frame_started = true;
+    }
+
+    pub fn end_frame_and_draw(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut CommandEncoder,
+        window: &Window,
+        window_surface_view: &wgpu::TextureView,
+        screen_descriptor: egui_wgpu::ScreenDescriptor,
+    ) {
+        if !self.frame_started {
+            panic!("begin_frame must be called before end_frame_and_draw can be called!");
+        }
+
+        self.context().set_pixels_per_point(screen_descriptor.pixels_per_point);
+
+        let full_output = self.state.egui_ctx().end_pass();
+        
+        self.state.handle_platform_output(window, full_output.platform_output);
+
+        let ppp = self.context().pixels_per_point();
+        let tris = self
+            .context()
+            .tessellate(full_output.shapes, ppp);
+
+        for (id, image_delta) in &full_output.textures_delta.set {
+            self.renderer.update_texture(device, queue, *id, image_delta);
+        }
+
+        self.renderer.update_buffers(device, queue, encoder, &tris, &screen_descriptor);
+
+        let rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: window_surface_view,
+                resolve_target: None,
+                ops: egui_wgpu::wgpu::Operations {
+                    load: egui_wgpu::wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+                depth_slice: None
+            })],
+            label: Some("egui main render pass"),
+            ..Default::default()
+        });
+
+        self.renderer.render(&mut rpass.forget_lifetime(), &tris, &screen_descriptor);
+
+        for x in &full_output.textures_delta.free {
+            self.renderer.free_texture(x);
+        }
+
+        self.frame_started = false;
+    }
+
+    pub fn context(&mut self) -> &egui::Context {
+        self.state.egui_ctx()
+    }
+
+    fn handle_input(&mut self, window: &Window, event: &WindowEvent) {
+        let _ = self.state.on_window_event(window, event);
+    }
+}
+

@@ -19,3 +19,5 @@ wgpu = "29.0.1"
 winit = "0.30.13"
 
 ohboy_macro = { workspace = true }
+rand = "0.10.1"
+egui-winit = "0.34.2"
