@@ -59,9 +59,6 @@ impl Cpu {
     }
 
     pub fn cycle(&mut self, memory: &mut Memory) -> Result<(MachineCycle, AnyInstruction), CpuError> {
-        // if self.registers.pc().get() == 0x2817 {
-        //     panic!("should have tiles:\noam: {:?}, vram: {:?}", memory.oam, memory.vram,);
-        // }
         let opcode = self.consume_pc_u8(memory);
         let (machine_cycle, instruction) = self.execute(memory, opcode)?;
         Ok(match instruction {

@@ -20,10 +20,6 @@ impl ApplicationHandler for App {
         self.render_context = Some(pollster::block_on(RenderContext::new(Arc::new(window))).unwrap())
     }
 
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        
-    }
-
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -199,9 +195,9 @@ impl RenderContext {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: rand::random(),
-                            g: rand::random(),
-                            b: rand::random(),
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
