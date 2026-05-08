@@ -1,8 +1,12 @@
 use egui::{FontFamily, FontId, RichText};
 
-use crate::emulator::{Snapshot, cpu::registers::Registers};
+use crate::emulator;
 
-pub fn render(ctx: &egui::Context, snapshot: Option<&Snapshot>) {
+pub struct UiState {
+    emulator_snapshot: Option<emulator::Snapshot>,
+}
+
+pub fn render(ctx: &egui::Context, state: UiState) {
     if let Some(snapshot) = snapshot {
         let registers = &snapshot.registers;
         egui::Window::new("Registers")
