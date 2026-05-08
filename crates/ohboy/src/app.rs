@@ -4,7 +4,7 @@ use egui_winit::EventResponse;
 use wgpu::CommandEncoder;
 use winit::{application::ApplicationHandler, event::{KeyEvent, WindowEvent}, event_loop::ActiveEventLoop, keyboard::{KeyCode, PhysicalKey}, window::{Window, WindowId}};
 
-use crate::emulator::{EmulatorCommand, EmulatorHandle, Rom, Snapshot};
+use crate::{app::ui::UiState, emulator::{EmulatorCommand, EmulatorHandle, Rom, Snapshot}};
 
 mod ui;
 
@@ -235,7 +235,9 @@ impl RenderContext {
 
         self.egui.begin_frame(&self.window);
 
-        ui::render(self.egui.context(), snapshot);
+        ui::render(self.egui.context(), UiState {
+            snapshot
+        });
         
         self.egui.end_frame_and_draw(&self.device, &self.queue, &mut encoder, &self.window, &view, screen_descriptor);
 
