@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::io::Write;
+use std::sync::mpsc::{Receiver, Sender, SyncSender, channel, sync_channel};
 
+use crate::emulator::cpu::registers::Registers;
 use crate::emulator::memory::Memory;
 use crate::emulator::cpu::Cpu;
 use crate::emulator::ppu::Ppu;
@@ -111,6 +113,80 @@ fn dump_tiles(memory: &Memory) {
     //             }
     //         ).as_bytes()
     // ).unwrap();
+}
+
+pub struct Snapshot {
+    pub registers: Registers
+}
+
+impl Snapshot {
+    pub fn new(emulator: &Emulator) -> Self {
+        Self {
+            registers: emulator.cpu.registers.clone()
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum EmulatorCommand {
+    LoadRom
+}
+
+pub struct EmulatorHandle {
+    command_tx: Sender<EmulatorCommand>,
+    snapshot_rx: Receiver<Snapshot>
+}
+
+pub struct EmulatorThread {
+    emulator: Option<Emulator>,
+    command_rx: Receiver<EmulatorCommand>,
+    snapshot_tx: SyncSender<Snapshot>
+}
+
+impl EmulatorHandle {
+    pub fn spawn() -> Self {
+        let (command_tx, command_rx) = channel();
+        let (snapshot_tx, snapshot_rx) = sync_channel(1);
+
+        std::thread::spawn(move || {
+            let mut thread = EmulatorThread::new(command_rx, snapshot_tx);
+            thread.run();
+        });
+
+        Self {
+            command_tx,
+            snapshot_rx
+        }
+    }
+}
+
+impl EmulatorThread {
+    fn new(command_rx: Receiver<EmulatorCommand>, snapshot_tx: SyncSender<Snapshot>) -> Self {
+        Self {
+            emulator: None,
+            command_rx,
+            snapshot_tx,
+        }
+    }
+
+    fn run(&mut self) {
+        loop {
+            let command = self.command_rx.try_recv().ok();
+            if let Some(c) = command {
+                self.process_command(c);
+            }
+
+            if let Some(e) = self.emulator.as_mut() {
+                // add timing for when an actual frame is ready
+                e.run_frame();
+
+                let _ = self.snapshot_tx.try_send(Snapshot::new(e));
+            }
+        }
+    }
+
+    fn process_command(&mut self, command: EmulatorCommand) {
+    }
 }
 
 fn idx_to_rgb(idx: u8) -> [u8; 3] {

@@ -2,6 +2,7 @@ use bitflags::bitflags;
 
 use crate::emulator::register::{ByteRegisterRead, ByteRegisterWrite, Register, WordRegisterRef, WordRegisterRefMut};
 
+#[derive(Debug, Clone)]
 pub struct Registers {
     pub pc: Register<u16>,
     pub sp: Register<u16>,
@@ -176,7 +177,7 @@ impl_register_pair_methods!(
 );
 
 bitflags! {
-    #[derive(Copy, Clone)]
+    #[derive(Debug, Copy, Clone)]
     pub struct CpuFlags: u8 {
         // Z Flag, set if result of an operation is zero.
         const ZERO = 1 << 7;
