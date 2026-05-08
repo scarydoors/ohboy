@@ -2,8 +2,6 @@ use bitflags::bitflags;
 
 use crate::emulator::register::{ByteRegisterRead, ByteRegisterWrite, Register, WordRegisterRef, WordRegisterRefMut};
 
-
-
 pub struct Registers {
     pub pc: Register<u16>,
     pub sp: Register<u16>,

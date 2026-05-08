@@ -28,7 +28,7 @@ impl<T: Copy + Flags> Register<T> {
     }
 
     pub fn set_retain(&mut self, bits: T::Bits) {
-        self.0 = T::from_bits_retain(bits);
+        self.set(T::from_bits_retain(bits));
     }
 }
 

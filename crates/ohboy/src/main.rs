@@ -2,10 +2,10 @@ use std::{env, fs::{self}, path, process::ExitCode};
 
 use winit::event_loop::{ControlFlow, EventLoop};
 
-use crate::{emulator::{Emulator, Rom}, ui::App};
+use crate::{emulator::{Emulator, Rom}, app::App};
 
 mod emulator;
-mod ui;
+mod app;
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();

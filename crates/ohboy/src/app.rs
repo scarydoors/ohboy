@@ -6,6 +6,8 @@ use winit::{application::ApplicationHandler, event::{KeyEvent, WindowEvent}, eve
 
 use crate::emulator::{Emulator, Rom};
 
+mod ui;
+
 #[derive(Default)]
 pub struct App {
     render_context: Option<RenderContext>,
@@ -211,20 +213,15 @@ impl RenderContext {
             });
         }
 
-        self.egui.begin_frame(&self.window);
-
-        egui::Window::new("winit + egui")
-            .resizable(true)
-            .vscroll(true)
-            .default_open(true)
-            .show(self.egui.context(), |ui| {
-                ui.label("what");
-            });
-
         let screen_descriptor = egui_wgpu::ScreenDescriptor {
             size_in_pixels: [self.config.width, self.config.height],
             pixels_per_point: self.window.scale_factor() as f32,
         };
+
+        self.egui.begin_frame(&self.window);
+
+        ui::render(self.egui.context());
+        
         self.egui.end_frame_and_draw(&self.device, &self.queue, &mut encoder, &self.window, &view, screen_descriptor);
 
         self.queue.submit(std::iter::once(encoder.finish()));

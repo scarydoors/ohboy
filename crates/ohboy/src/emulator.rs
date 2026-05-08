@@ -5,7 +5,7 @@ use crate::emulator::memory::Memory;
 use crate::emulator::cpu::Cpu;
 use crate::emulator::ppu::Ppu;
 
-mod cpu;
+pub mod cpu;
 mod rom;
 mod memory;
 mod mbc;
@@ -32,24 +32,21 @@ impl Emulator {
         }
     }
 
-    pub fn run_frame(&mut self) {
-        loop {
-            self.cycles += 1;
-            let pc = self.cpu.registers.pc.get();
-            let machine_cycle = match self.cpu.cycle(&mut self.memory) {
-                Ok((machine_cycle, instruction)) => {
-                    println!("{:#x}: {}", pc, instruction);
-                    machine_cycle
-                },
-                Err(e) => {
-                    dump_tiles(&self.memory);
-                    panic!("{}, should have tiles:\noam: {:?}, vram: {:?}, cycles: {}", e, self.memory.oam, self.memory.vram, self.cycles);
-                }
-            };
-            if self.ppu.step(&mut self.memory, machine_cycle.into()) {
-                return
+    pub fn run_frame(&mut self) -> bool {
+        self.cycles += 1;
+        let pc = self.cpu.registers.pc.get();
+        let machine_cycle = match self.cpu.cycle(&mut self.memory) {
+            Ok((machine_cycle, instruction)) => {
+                println!("{:#x}: {}", pc, instruction);
+                machine_cycle
+            },
+            Err(e) => {
+                dump_tiles(&self.memory);
+                panic!("{}, should have tiles:\noam: {:?}, vram: {:?}, cycles: {}", e, self.memory.oam, self.memory.vram, self.cycles);
             }
-        }
+        };
+
+        self.ppu.step(&mut self.memory, machine_cycle.into())
     }
 }
 
