@@ -1,6 +1,6 @@
 use crate::emulator::mbc;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Rom {
     pub data: Vec<u8>,
 }

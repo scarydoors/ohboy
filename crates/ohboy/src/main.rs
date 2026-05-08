@@ -2,7 +2,7 @@ use std::{env, fs::{self}, path, process::ExitCode};
 
 use winit::event_loop::{ControlFlow, EventLoop};
 
-use crate::{emulator::{Emulator, Rom}, app::App};
+use crate::{app::App, emulator::{Emulator, EmulatorHandle, Rom}};
 
 mod emulator;
 mod app;
@@ -33,9 +33,11 @@ fn main() -> ExitCode {
     
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Wait);
-    let mut app = App::default();
 
-    app.load_rom(&rom);
+    let emulator_handle = EmulatorHandle::spawn();
+    let mut app = App::new(emulator_handle);
+
+    app.load_rom(rom);
     event_loop.run_app(&mut app).unwrap();
 
     ExitCode::SUCCESS

@@ -4,14 +4,14 @@ use egui_winit::EventResponse;
 use wgpu::CommandEncoder;
 use winit::{application::ApplicationHandler, event::{KeyEvent, WindowEvent}, event_loop::ActiveEventLoop, keyboard::{KeyCode, PhysicalKey}, window::{Window, WindowId}};
 
-use crate::emulator::{Emulator, Rom};
+use crate::emulator::{EmulatorCommand, EmulatorHandle, Rom, Snapshot};
 
 mod ui;
 
-#[derive(Default)]
 pub struct App {
     render_context: Option<RenderContext>,
-    emulator: Option<Emulator>,
+    emulator_handle: EmulatorHandle,
+    current_snapshot: Option<Snapshot>,
 }
 
 impl ApplicationHandler for App {
@@ -19,7 +19,14 @@ impl ApplicationHandler for App {
         let window_attributes = Window::default_attributes();
         let window = event_loop.create_window(window_attributes).unwrap();
 
-        self.render_context = Some(pollster::block_on(RenderContext::new(Arc::new(window))).unwrap())
+        self.render_context = Some(pollster::block_on(RenderContext::new(Arc::new(window))).unwrap());
+        self.emulator_handle.send_command(EmulatorCommand::Resume);
+    }
+
+    fn about_to_wait(&mut self, _: &ActiveEventLoop) {
+        if let Some(snapshot) = self.emulator_handle.try_recv_snapshot() {
+            self.current_snapshot = Some(snapshot)
+        }
     }
 
     fn window_event(
@@ -49,7 +56,7 @@ impl ApplicationHandler for App {
                 self.handle_key(event_loop, code, state.is_pressed()); 
             },
             WindowEvent::RedrawRequested => {
-                match render_context.render() {
+                match render_context.render(self.current_snapshot.as_ref()) {
                     Ok(_) => {},
                     Err(e) => {
                         println!("{}", e);
@@ -63,8 +70,16 @@ impl ApplicationHandler for App {
 }
 
 impl App {
-    pub fn load_rom(&mut self, rom: &Rom) {
-        self.emulator = Some(Emulator::new(&rom))
+    pub fn new(emulator_handle: EmulatorHandle) -> Self {
+        Self {
+            render_context: None,
+            emulator_handle,
+            current_snapshot: None,
+        }
+    }
+
+    pub fn load_rom(&mut self, rom: Rom) {
+        self.emulator_handle.send_command(EmulatorCommand::LoadRom(rom))
     }
 
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, code: KeyCode, is_pressed: bool) {
@@ -157,7 +172,7 @@ impl RenderContext {
         }
     }
 
-    fn render(&mut self) -> anyhow::Result<()> {
+    fn render(&mut self, snapshot: Option<&Snapshot>) -> anyhow::Result<()> {
         self.window.request_redraw();
 
         if !self.is_surface_configured {
@@ -220,7 +235,7 @@ impl RenderContext {
 
         self.egui.begin_frame(&self.window);
 
-        ui::render(self.egui.context());
+        ui::render(self.egui.context(), snapshot);
         
         self.egui.end_frame_and_draw(&self.device, &self.queue, &mut encoder, &self.window, &view, screen_descriptor);
 

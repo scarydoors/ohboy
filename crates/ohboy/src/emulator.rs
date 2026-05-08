@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc::{Receiver, Sender, SyncSender, channel, sync_channel};
+use std::time::Duration;
 
 use crate::emulator::cpu::registers::Registers;
 use crate::emulator::memory::Memory;
@@ -127,9 +128,17 @@ impl Snapshot {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum EmulatorCommand {
-    LoadRom
+    Resume,
+    Pause,
+    LoadRom(Rom),
+    Active(ActiveCommand),
+}
+
+#[derive(Debug, Clone)]
+pub enum ActiveCommand {
+    ButtonDown,
 }
 
 pub struct EmulatorHandle {
@@ -138,6 +147,7 @@ pub struct EmulatorHandle {
 }
 
 pub struct EmulatorThread {
+    paused: bool,
     emulator: Option<Emulator>,
     command_rx: Receiver<EmulatorCommand>,
     snapshot_tx: SyncSender<Snapshot>
@@ -158,11 +168,20 @@ impl EmulatorHandle {
             snapshot_rx
         }
     }
+
+    pub fn send_command(&self, command: EmulatorCommand) {
+        let _todo = self.command_tx.send(command);
+    }
+
+    pub fn try_recv_snapshot(&self) -> Option<Snapshot> {
+        self.snapshot_rx.try_recv().ok()
+    }
 }
 
 impl EmulatorThread {
     fn new(command_rx: Receiver<EmulatorCommand>, snapshot_tx: SyncSender<Snapshot>) -> Self {
         Self {
+            paused: true,
             emulator: None,
             command_rx,
             snapshot_tx,
@@ -178,7 +197,9 @@ impl EmulatorThread {
 
             if let Some(e) = self.emulator.as_mut() {
                 // add timing for when an actual frame is ready
-                e.run_frame();
+                if !self.paused {
+                    e.run_frame();
+                }
 
                 let _ = self.snapshot_tx.try_send(Snapshot::new(e));
             }
@@ -186,6 +207,22 @@ impl EmulatorThread {
     }
 
     fn process_command(&mut self, command: EmulatorCommand) {
+        use EmulatorCommand::*;
+
+        match command {
+            Resume => self.paused = false,
+            Pause => self.paused = true,
+            LoadRom(ref rom) => { self.emulator = Some(Emulator::new(rom)); },
+            Active(command) => {
+                if let Some(_e) = &self.emulator {
+                    use ActiveCommand::*;
+
+                    match command {
+                        ButtonDown => {println!("pressed button")},
+                    }
+                }
+            }
+        };
     }
 }
 
