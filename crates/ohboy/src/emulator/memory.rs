@@ -1,6 +1,8 @@
 use bitflags::bitflags;
 
-use crate::emulator::{cpu::interrupt, register::Register, joypad::JoypadFlags, mbc, ppu::{LcdControlFlags, LcdStatusFlags}};
+use crate::emulator::{cpu::interrupt, joypad::JoypadFlags, mbc, memory::vram::{VRam, VRamData}, ppu::{LcdControlFlags, LcdStatusFlags}, register::Register};
+
+pub mod vram;
 
 pub trait ReadMemory {
     fn read_memory(&self, address: u16) -> u8;
@@ -26,7 +28,7 @@ impl<const N: usize, const START: u16, const END: u16> MemoryRegion<N, START, EN
     const START: u16 = START;
     const END: u16 = END;
 
-    fn address_to_idx(address: u16) -> usize {
+    pub fn address_to_idx(address: u16) -> usize {
         debug_assert!((START..=END).contains(&address), "address out of region bounds");
         (address - Self::START) as usize
     }
@@ -50,7 +52,6 @@ impl<const N: usize, const START: u16, const END: u16> Default for MemoryRegion<
     }
 }
 
-pub type VRam = MemoryRegion<8192, 0x8000, 0x9FFF>;
 pub type WRam = MemoryRegion<8192, 0xC000, 0xDFFF>;
 pub type Oam = MemoryRegion<160, 0xFE00, 0xFE9F>;
 const UNUSABLE_START_ADDRESS: u16 = 0xFE00;
@@ -194,7 +195,7 @@ impl WriteMemory for Memory {
         match address {
             mbc::MBC_ROM_START..=mbc::MBC_ROM_END
             | mbc::MBC_EXTERNAL_RAM_START..=mbc::MBC_EXTERNAL_RAM_END  => self.mbc.write_memory(address, value),
-            VRam::START..=VRam::END => self.vram.write_memory(address, value),
+            VRamData::START..=VRamData::END => self.vram.write_memory(address, value),
             WRam::START..=WRam::END => self.wram.write_memory(address, value),
             Oam::START..=Oam::END => self.oam.write_memory(address, value),
             JOYPAD_ADDRESS => self.joypad.set_retain(value),
@@ -229,3 +230,4 @@ bitflags! {
         const CLOCK_SELECT = 1;
     }
 }
+

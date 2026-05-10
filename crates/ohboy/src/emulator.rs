@@ -87,19 +87,19 @@ fn dump_tiles(memory: &Memory) {
     out.write(b"P3\n").unwrap();
     out.write(format!("{} {}\n", 8 * 10, tiles.chunks(10).len() * 8).as_bytes()).unwrap();
     out.write(b"255\n").unwrap();
-    for tile_row in tiles.chunks(10) {
-        for y in 0..8 {
-            for tile in tile_row {
-                let start_idx = y * 8;
-                let end_idx = (y * 8) + 8;
-                for tile_idx in &tile[start_idx..end_idx] {
-                    let rgb = idx_to_rgb(*tile_idx);
-                    out.write(format!("{} {} {} ", rgb[0], rgb[1], rgb[2]).as_bytes()).unwrap();
-                }
-            }
-            out.write(b"\n").unwrap();
-        }
-    }
+    // for tile_row in tiles.chunks(10) {
+    //     for y in 0..8 {
+    //         for tile in tile_row {
+    //             let start_idx = y * 8;
+    //             let end_idx = (y * 8) + 8;
+    //             for tile_idx in &tile[start_idx..end_idx] {
+    //                 let rgb = idx_to_rgb(*tile_idx);
+    //                 out.write(format!("{} {} {} ", rgb[0], rgb[1], rgb[2]).as_bytes()).unwrap();
+    //             }
+    //         }
+    //         out.write(b"\n").unwrap();
+    //     }
+    // }
     // out.write(
     //     idxs
     //         .iter()
@@ -226,12 +226,3 @@ impl EmulatorThread {
     }
 }
 
-fn idx_to_rgb(idx: u8) -> [u8; 3] {
-    match idx {
-        3 => [0, 0, 0],
-        2 => [85, 85, 85],
-        1 => [170, 170, 170],
-        0 => [255, 255, 255],
-        _ => panic!("wat"),
-    }
-}

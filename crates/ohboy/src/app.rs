@@ -11,7 +11,7 @@ mod ui;
 pub struct App {
     render_context: Option<RenderContext>,
     emulator_handle: EmulatorHandle,
-    current_snapshot: Option<Snapshot>,
+    ui_state: UiState,
 }
 
 impl ApplicationHandler for App {
