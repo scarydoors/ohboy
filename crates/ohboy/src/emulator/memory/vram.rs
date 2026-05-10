@@ -8,6 +8,8 @@ pub type VRamData = MemoryRegion<8192, 0x8000, 0x9FFF>;
 #[derive(Clone, Debug)]
 pub struct VRam {
     data: VRamData,
+
+    pub dirty_tiles: bool, 
     pub tiles: Vec<Tile>,
 }
 
@@ -33,6 +35,8 @@ impl VRam {
 
         let mut this = Self {
             data,
+
+            dirty_tiles: false,
             tiles
         };
 
@@ -66,6 +70,7 @@ impl VRam {
                 self.tiles[i] = tile;
             }
         }
+        self.dirty_tiles = true;
     }
 }
 

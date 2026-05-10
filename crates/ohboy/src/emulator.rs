@@ -123,10 +123,12 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    pub fn new(emulator: &Emulator) -> Self {
+    pub fn new(emulator: &mut Emulator) -> Self {
+        let vram = emulator.memory.vram.clone();
+        emulator.memory.vram.dirty_tiles = false;
         Self {
             registers: emulator.cpu.registers.clone(),
-            vram: emulator.memory.vram.clone()
+            vram
         }
     }
 }

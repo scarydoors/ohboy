@@ -1,21 +1,21 @@
-use egui::{FontFamily, FontId, ImageSource, RichText, TextureHandle, TextureOptions, load::SizedTexture};
+use egui::{FontFamily, FontId, ImageSource, RichText, TextureHandle, TextureOptions, Vec2, load::SizedTexture};
 
 use crate::emulator::{self, Snapshot};
 
 pub struct UiState {
     snapshot: Option<Snapshot>,
-    tile_textures: Vec<TextureHandle>
+    tile_textures: Vec<TextureHandle>,
 }
 
 impl UiState {
     pub fn new() -> Self {
         UiState {
             snapshot: None,
-            tile_textures: Vec::with_capacity(3 * 128)
+            tile_textures: Vec::with_capacity(3 * 128),
         }
     }
 
-    pub fn update(&mut self, ctx: &egui::Context, snapshot: Snapshot) {
+    pub fn update(&mut self, ctx: &egui::Context, mut snapshot: Snapshot) {
         if self.tile_textures.is_empty() {
             for (i, tile) in snapshot.vram.tiles.iter().enumerate() {
                 // TODO: this could be a method on the tile
@@ -24,13 +24,15 @@ impl UiState {
                     ctx.load_texture(format!("Tile {i}"), egui::ColorImage::from_rgb([8, 8], &rgb_data), TextureOptions::NEAREST)
                 ); 
             }
-        } else {
+        } else if snapshot.vram.dirty_tiles {
+            // FIXME: refreshes too often, should debounce this
             for (i, tile) in snapshot.vram.tiles.iter().enumerate() {
                 let rgb_data: Vec<u8> = tile.color_indexes.iter().copied().flat_map(|i| idx_to_rgb(i)).collect();
-                self.tile_textures[i].set(egui::ColorImage::from_rgb([8, 8], &rgb_data), TextureOptions::NEAREST)
+                self.tile_textures[i].set(egui::ColorImage::from_rgb([8, 8], &rgb_data), TextureOptions::NEAREST);
             }
         }
 
+        snapshot.vram.dirty_tiles = false;
         self.snapshot = Some(snapshot);
     }
 }
@@ -79,8 +81,14 @@ pub fn render(ctx: &egui::Context, state: &UiState) {
         egui::Window::new("Tile viewer")
             .default_open(true)
             .resizable(true)
+            .vscroll(true)
             .show(ctx, |ui| {
-                ui.image(ImageSource::Texture(SizedTexture::from_handle(&state.tile_textures[0])))
+                ui.horizontal_wrapped(|ui| {
+                    ui.style_mut().spacing.item_spacing = Vec2::new(0.0, 0.0);
+                    for tile in &state.tile_textures {
+                        ui.add(egui::Image::new(ImageSource::Texture(SizedTexture::from_handle(tile))).fit_to_exact_size(Vec2::new(32.0, 32.0)));
+                    }
+                })
             });
     }
 }
