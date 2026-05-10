@@ -25,7 +25,7 @@ impl ApplicationHandler for App {
 
     fn about_to_wait(&mut self, _: &ActiveEventLoop) {
         if let Some(snapshot) = self.emulator_handle.try_recv_snapshot() {
-            self.current_snapshot = Some(snapshot)
+            self.ui_state.update(self.render_context.as_mut().unwrap().egui.context(), snapshot);
         }
     }
 
@@ -56,7 +56,7 @@ impl ApplicationHandler for App {
                 self.handle_key(event_loop, code, state.is_pressed()); 
             },
             WindowEvent::RedrawRequested => {
-                match render_context.render(self.current_snapshot.as_ref()) {
+                match render_context.render(&self.ui_state) {
                     Ok(_) => {},
                     Err(e) => {
                         println!("{}", e);
@@ -74,7 +74,7 @@ impl App {
         Self {
             render_context: None,
             emulator_handle,
-            current_snapshot: None,
+            ui_state: UiState::new()
         }
     }
 
@@ -96,7 +96,7 @@ pub struct RenderContext {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    egui: EguiRenderer,
+    pub egui: EguiRenderer,
     is_surface_configured: bool,
 
 }
@@ -172,7 +172,7 @@ impl RenderContext {
         }
     }
 
-    fn render(&mut self, snapshot: Option<&Snapshot>) -> anyhow::Result<()> {
+    fn render(&mut self, ui_state: &UiState) -> anyhow::Result<()> {
         self.window.request_redraw();
 
         if !self.is_surface_configured {
@@ -235,9 +235,7 @@ impl RenderContext {
 
         self.egui.begin_frame(&self.window);
 
-        ui::render(self.egui.context(), UiState {
-            snapshot
-        });
+        ui::render(self.egui.context(), ui_state);
         
         self.egui.end_frame_and_draw(&self.device, &self.queue, &mut encoder, &self.window, &view, screen_descriptor);
 

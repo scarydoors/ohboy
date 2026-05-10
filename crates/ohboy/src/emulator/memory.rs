@@ -16,7 +16,7 @@ pub trait ReadWriteMemory: ReadMemory + WriteMemory {}
 
 impl<T: ReadMemory + WriteMemory> ReadWriteMemory for T {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemoryRegion<const N: usize, const START: u16, const END: u16>(pub [u8; N]);
 
 impl<const N: usize, const START: u16, const END: u16> MemoryRegion<N, START, END> {
@@ -125,7 +125,7 @@ impl Memory {
     pub fn new(mbc: mbc::MBC) -> Self {
         Self {
             mbc: mbc,
-            vram: Default::default(),
+            vram: VRam::new(),
             wram: Default::default(),
             oam: Default::default(),
 
@@ -161,7 +161,7 @@ impl ReadMemory for Memory {
         match address {
             mbc::MBC_ROM_START..=mbc::MBC_ROM_END
             | mbc::MBC_EXTERNAL_RAM_START..=mbc::MBC_EXTERNAL_RAM_END  => self.mbc.read_memory(address),
-            VRam::START..=VRam::END => self.vram.read_memory(address),
+            VRamData::START..=VRamData::END => self.vram.read_memory(address),
             WRam::START..=WRam::END => self.wram.read_memory(address),
             Oam::START..=Oam::END => self.oam.read_memory(address),
             JOYPAD_ADDRESS => self.joypad.get().bits(),
