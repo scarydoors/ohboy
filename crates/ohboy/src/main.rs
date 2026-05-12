@@ -2,7 +2,7 @@ use std::{env, fs::{self}, path, process::ExitCode};
 
 use winit::event_loop::{ControlFlow, EventLoop};
 
-use crate::{app::App, emulator::{Emulator, EmulatorHandle, Rom}};
+use crate::{app::{App, AppEvent}, emulator::{Emulator, EmulatorHandle, Rom}};
 
 mod emulator;
 mod app;
@@ -26,11 +26,11 @@ fn main() -> ExitCode {
     println!("SRAM size: {}KiB", rom.ram_size());
     println!("MBC type: {:?}", rom.cartridge_type());
 
-    let event_loop = EventLoop::new().unwrap();
+    let event_loop = EventLoop::with_user_event().build().unwrap();
     event_loop.set_control_flow(ControlFlow::Wait);
 
     // TODO: event loop proxy so we can avoid using about_to_wait and properly wake up the event loop
-    let emulator_handle = EmulatorHandle::spawn();
+    let emulator_handle = EmulatorHandle::spawn(event_loop.create_proxy());
     let mut app = App::new(emulator_handle);
 
     app.load_rom(rom);

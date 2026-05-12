@@ -13,21 +13,13 @@ pub struct App {
     ui_state: UiState,
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler<AppEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window_attributes = Window::default_attributes();
         let window = event_loop.create_window(window_attributes).unwrap();
 
         self.render_context = Some(pollster::block_on(RenderContext::new(Arc::new(window))).unwrap());
         self.emulator_handle.send_command(EmulatorCommand::Resume);
-    }
-
-    fn about_to_wait(&mut self, _: &ActiveEventLoop) {
-        // fix me, i dont like the emulator_handle way of doing things
-        if let Ok(state) = self.emulator_handle.state.try_lock().as_mut() {
-            // FIXME: self.render_context.as_mut().unwrap().egui.context() is not nice
-            self.ui_state.update(self.render_context.as_mut().unwrap().egui.context(), state);
-        }
     }
 
     fn window_event(
@@ -66,6 +58,19 @@ impl ApplicationHandler for App {
                 }
             },
             _ => {}
+        }
+    }
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: AppEvent) {
+        use AppEvent::*;
+
+        match event {
+            EmulatorState => {
+                if let Ok(state) = self.emulator_handle.state.try_lock().as_mut() {
+                    // FIXME: self.render_context.as_mut().unwrap().egui.context() is not nice
+                    self.ui_state.update(self.render_context.as_mut().unwrap().egui.context(), state);
+                }
+            },
         }
     }
 }
@@ -347,3 +352,7 @@ impl EguiRenderer {
     }
 }
 
+#[derive(Debug)]
+pub enum AppEvent {
+    EmulatorState
+}

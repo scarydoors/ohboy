@@ -4,6 +4,9 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender, SyncSender, channel, sync_channel};
 use std::time::Duration;
 
+use winit::event_loop::EventLoopProxy;
+
+use crate::app::AppEvent;
 use crate::emulator::cpu::registers::Registers;
 use crate::emulator::memory::Memory;
 use crate::emulator::cpu::Cpu;
@@ -97,21 +100,22 @@ impl State {
 
 pub struct EmulatorHandle {
     command_tx: Sender<EmulatorCommand>,
-    pub state: Arc<Mutex<State>>
+    pub state: Arc<Mutex<State>>,
 }
 
 pub struct EmulatorThread {
     command_rx: Receiver<EmulatorCommand>,
-    state: Arc<Mutex<State>>
+    state: Arc<Mutex<State>>,
+    event_loop_proxy: EventLoopProxy<AppEvent>
 }
 
 impl EmulatorHandle {
-    pub fn spawn() -> Self {
+    pub fn spawn(event_loop_proxy: EventLoopProxy<AppEvent>) -> Self {
         let (command_tx, command_rx) = channel();
 
         let state = Arc::new(Mutex::new(State::new()));
 
-        let mut thread = EmulatorThread::new(command_rx, state.clone());
+        let mut thread = EmulatorThread::new(command_rx, state.clone(), event_loop_proxy);
         std::thread::spawn(move || {
             thread.run();
         });
@@ -128,10 +132,11 @@ impl EmulatorHandle {
 }
 
 impl EmulatorThread {
-    fn new(command_rx: Receiver<EmulatorCommand>, state: Arc<Mutex<State>>) -> Self {
+    fn new(command_rx: Receiver<EmulatorCommand>, state: Arc<Mutex<State>>, event_loop_proxy: EventLoopProxy<AppEvent>) -> Self {
         Self {
             state,
             command_rx,
+            event_loop_proxy
         }
     }
 
@@ -157,6 +162,7 @@ impl EmulatorThread {
                     }
                 }
             }
+            let _ = self.event_loop_proxy.send_event(AppEvent::EmulatorState);
             std::thread::sleep(Duration::from_millis(16));
         }
     }
