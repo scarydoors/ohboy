@@ -93,6 +93,7 @@ impl Ppu {
             }
 
             if ly.get() as usize == FRAMEBUFFER_HEIGHT {
+                return true
                 // present frame bro
                 // fire mode 1 vblank interrupt
             } else if ly.get() == 153 {

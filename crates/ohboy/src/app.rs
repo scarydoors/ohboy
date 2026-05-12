@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use wgpu::CommandEncoder;
 use winit::{application::ApplicationHandler, event::{KeyEvent, WindowEvent}, event_loop::ActiveEventLoop, keyboard::{KeyCode, PhysicalKey}, window::{Window, WindowId}};
 
-use crate::{app::ui::UiState, emulator::{EmulatorCommand, EmulatorHandle, Rom, Snapshot}};
+use crate::{app::ui::UiState, emulator::{EmulatorCommand, EmulatorHandle, Rom}};
 
 mod ui;
 
@@ -23,8 +23,10 @@ impl ApplicationHandler for App {
     }
 
     fn about_to_wait(&mut self, _: &ActiveEventLoop) {
-        if let Some(snapshot) = self.emulator_handle.try_recv_snapshot() {
-            self.ui_state.update(self.render_context.as_mut().unwrap().egui.context(), snapshot);
+        // fix me, i dont like the emulator_handle way of doing things
+        if let Ok(state) = self.emulator_handle.state.try_lock().as_mut() {
+            // FIXME: self.render_context.as_mut().unwrap().egui.context() is not nice
+            self.ui_state.update(self.render_context.as_mut().unwrap().egui.context(), state);
         }
     }
 

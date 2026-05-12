@@ -1,10 +1,10 @@
 pub mod romonly;
 
-use crate::emulator::{mbc::romonly::RomOnly, memory::ReadWriteMemory, Rom};
+use crate::emulator::{Rom, mbc::romonly::RomOnly, memory::{ReadMemory, ReadWriteMemory, WriteMemory}};
 
 
 #[derive(Default, Debug)]
-pub enum MBCType {
+pub enum MbcType {
     #[default]
     RomOnly,
     MBC1,
@@ -29,12 +29,30 @@ pub const MBC_ROM_END: u16 = 0x7FFF;
 pub const MBC_EXTERNAL_RAM_START: u16 = 0xA000;
 pub const MBC_EXTERNAL_RAM_END: u16 = 0xBFFF;
 
-pub type MBC = Box<dyn ReadWriteMemory>;
+pub enum Mbc {
+    RomOnly(RomOnly)
+}
 
-pub fn create_mbc(rom: &Rom) -> MBC {
+impl ReadMemory for Mbc {
+    fn read_memory(&self, address: u16) -> u8 {
+        match self {
+            Mbc::RomOnly(rom_only) => rom_only.read_memory(address),
+        }
+    }
+}
+
+impl WriteMemory for Mbc {
+    fn write_memory(&mut self, address: u16, value: u8) {
+        match self {
+            Mbc::RomOnly(rom_only) => rom_only.write_memory(address, value),
+        }
+    }
+}
+
+pub fn create_mbc(rom: &Rom) -> Mbc {
     let cartridge_type = rom.cartridge_type();
     match cartridge_type.mbc_type {
-        MBCType::RomOnly => Box::new(RomOnly::new(rom.data.clone())),
+        MbcType::RomOnly => Mbc::RomOnly(RomOnly::new(rom.data.clone())),
         _ => unimplemented!("unsupported mbc type for create_mbc"),
     }
 }

@@ -21,9 +21,9 @@ mod register;
 pub use crate::emulator::rom::Rom;
 
 pub struct Emulator {
-    cpu: Cpu,
-    ppu: Ppu,
-    memory: Memory,
+    pub cpu: Cpu,
+    pub ppu: Ppu,
+    pub memory: Memory,
     cycles: usize
 }
 
@@ -122,22 +122,6 @@ pub struct MachineCycle(pub usize);
 //     // ).unwrap();
 // }
 
-pub struct Snapshot {
-    pub registers: Registers,
-    pub vram: VRam,
-}
-
-impl Snapshot {
-    pub fn new(emulator: &mut Emulator) -> Self {
-        let vram = emulator.memory.vram.clone();
-        emulator.memory.vram.dirty_tiles = false;
-        Self {
-            registers: emulator.cpu.registers.clone(),
-            vram
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum EmulatorCommand {
     Resume,
@@ -159,7 +143,7 @@ pub struct State {
 impl State {
     fn new() -> Self {
         Self {
-            paused: false,
+            paused: true,
             emulator: None
         }
     }
@@ -167,11 +151,10 @@ impl State {
 
 pub struct EmulatorHandle {
     command_tx: Sender<EmulatorCommand>,
-    state: Arc<Mutex<State>>
+    pub state: Arc<Mutex<State>>
 }
 
 pub struct EmulatorThread {
-    paused: bool,
     command_rx: Receiver<EmulatorCommand>,
     state: Arc<Mutex<State>>
 }
@@ -202,37 +185,38 @@ impl EmulatorThread {
     fn new(command_rx: Receiver<EmulatorCommand>, state: Arc<Mutex<State>>) -> Self {
         Self {
             state,
-            paused: true,
             command_rx,
         }
     }
 
     fn run(&mut self) {
         loop {
-            let mut emulator = self.emulator.lock().unwrap();
-            let command = self.command_rx.try_recv().ok();
-            if let Some(c) = command {
-                self.process_command(&mut emulator, c);
-            }
+            {
+                let mut state = self.state.lock().unwrap();
+                while let Ok(c) = self.command_rx.try_recv() {
+                    self.process_command(&mut state, c);
+                }
 
-            if !self.paused {
-
-                if let Some(e) = emulator.as_mut() {
-                    // add timing for when an actual frame is ready
+                if !state.paused {
+                    if let Some(e) = state.emulator.as_mut() {
+                        while !e.run_frame() {}
+                        // add timing for when an actual frame is ready
+                    }
                 }
             }
+            std::thread::sleep(Duration::from_millis(16));
         }
     }
 
-    fn process_command(&self, emulator: &mut Option<Emulator>, command: EmulatorCommand) {
+    fn process_command(&self, state: &mut State, command: EmulatorCommand) {
         use EmulatorCommand::*;
 
         match command {
-            Resume => self.paused = false,
-            Pause => self.paused = true,
-            LoadRom(ref rom) => { self.emulator = Some(Emulator::new(rom)); },
+            Resume => state.paused = false,
+            Pause => state.paused = true,
+            LoadRom(ref rom) => { state.emulator = Some(Emulator::new(rom)); },
             Active(command) => {
-                if let Some(_e) = &self.emulator {
+                if let Some(_e) = &state.emulator {
                     use ActiveCommand::*;
 
                     match command {

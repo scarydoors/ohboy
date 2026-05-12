@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 
-use crate::emulator::{cpu::interrupt, joypad::JoypadFlags, mbc, memory::vram::{VRam, VRamData}, ppu::{LcdControlFlags, LcdStatusFlags}, register::Register};
+use crate::emulator::{cpu::interrupt, joypad::JoypadFlags, mbc::{MBC_EXTERNAL_RAM_END, MBC_EXTERNAL_RAM_START, MBC_ROM_END, MBC_ROM_START, Mbc}, memory::vram::{VRam, VRamData}, ppu::{LcdControlFlags, LcdStatusFlags}, register::Register};
 
 pub mod vram;
 
@@ -13,10 +13,6 @@ pub trait WriteMemory {
 }
 
 pub trait ReadWriteMemory: ReadMemory + WriteMemory {}
-
-unsafe impl<T: Send + 'static> Send for Box<T> {}
-
-impl<T: ReadMemory + WriteMemory + Send + Sync + ?Sized> ReadWriteMemory for T {}
 
 #[derive(Debug, Clone)]
 pub struct MemoryRegion<const N: usize, const START: u16, const END: u16>(pub Vec<u8>);
@@ -89,7 +85,7 @@ const ENABLED_INTERRUPTS_ADDRESS: u16 = 0xFFFF;
 
 pub struct Memory {
     // provides rom bank and stuff
-    pub mbc: mbc::MBC,
+    pub mbc: Mbc,
 
     pub vram: VRam,
     pub wram: WRam,
@@ -124,7 +120,7 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub fn new(mbc: mbc::MBC) -> Self {
+    pub fn new(mbc: Mbc) -> Self {
         Self {
             mbc: mbc,
             vram: VRam::new(),
@@ -161,8 +157,8 @@ impl Memory {
 impl ReadMemory for Memory {
     fn read_memory(&self, address: u16) -> u8 {
         match address {
-            mbc::MBC_ROM_START..=mbc::MBC_ROM_END
-            | mbc::MBC_EXTERNAL_RAM_START..=mbc::MBC_EXTERNAL_RAM_END  => self.mbc.read_memory(address),
+            MBC_ROM_START..=MBC_ROM_END
+            | MBC_EXTERNAL_RAM_START..=MBC_EXTERNAL_RAM_END  => self.mbc.read_memory(address),
             VRamData::START..=VRamData::END => self.vram.read_memory(address),
             WRam::START..=WRam::END => self.wram.read_memory(address),
             Oam::START..=Oam::END => self.oam.read_memory(address),
@@ -195,8 +191,8 @@ impl ReadMemory for Memory {
 impl WriteMemory for Memory {
     fn write_memory(&mut self, address: u16, value: u8) {
         match address {
-            mbc::MBC_ROM_START..=mbc::MBC_ROM_END
-            | mbc::MBC_EXTERNAL_RAM_START..=mbc::MBC_EXTERNAL_RAM_END  => self.mbc.write_memory(address, value),
+            MBC_ROM_START..=MBC_ROM_END
+            | MBC_EXTERNAL_RAM_START..=MBC_EXTERNAL_RAM_END  => self.mbc.write_memory(address, value),
             VRamData::START..=VRamData::END => self.vram.write_memory(address, value),
             WRam::START..=WRam::END => self.wram.write_memory(address, value),
             Oam::START..=Oam::END => self.oam.write_memory(address, value),
