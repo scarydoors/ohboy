@@ -50,7 +50,6 @@ impl Emulator {
                 machine_cycle
             },
             Err(e) => {
-                //dump_tiles(&self.memory);
                 panic!("{}, should have tiles:\noam: {:?}, vram: {:?}, cycles: {}", e, self.memory.oam, self.memory.vram, self.cycles);
             }
         };
@@ -68,59 +67,6 @@ impl From<MachineCycle> for TimeCycle {
 }
 
 pub struct MachineCycle(pub usize);
-
-// fn dump_tiles(memory: &Memory) {
-//     let bytes = memory.vram.0.get(0..(10*128*3)).unwrap();
-//
-//     let mut tiles = Vec::new();
-//     for tile_bytes in bytes.chunks(16) {
-//         let mut idxs = Vec::new();
-//         for bytes in tile_bytes.chunks(2) {
-//             let lsb = bytes[0];
-//             let msb = bytes[1];
-//
-//             for i in (0..8).rev() {
-//                 let lsb_bit = (lsb >> i) & 1;
-//                 let msb_bit = (msb >> i) & 1;
-//
-//                 idxs.push(msb_bit << 1 | lsb_bit);
-//             }
-//         }
-//         tiles.push(idxs);
-//     }
-//
-//     let mut out = File::create("tiles.ppm").expect("failed to create tiles.ppm");
-//     out.write(b"P3\n").unwrap();
-//     out.write(format!("{} {}\n", 8 * 10, tiles.chunks(10).len() * 8).as_bytes()).unwrap();
-//     out.write(b"255\n").unwrap();
-//     // for tile_row in tiles.chunks(10) {
-//     //     for y in 0..8 {
-//     //         for tile in tile_row {
-//     //             let start_idx = y * 8;
-//     //             let end_idx = (y * 8) + 8;
-//     //             for tile_idx in &tile[start_idx..end_idx] {
-//     //                 let rgb = idx_to_rgb(*tile_idx);
-//     //                 out.write(format!("{} {} {} ", rgb[0], rgb[1], rgb[2]).as_bytes()).unwrap();
-//     //             }
-//     //         }
-//     //         out.write(b"\n").unwrap();
-//     //     }
-//     // }
-//     // out.write(
-//     //     idxs
-//     //         .iter()
-//     //         .fold(String::new(),
-//     //             |mut acc, i| {
-//     //                 acc += &idx_to_rgb(*i)
-//     //                     .iter()
-//     //                     .fold(String::new(), |acc, rgb| {
-//     //                         format!("{}{} ", acc, rgb)
-//     //                     });
-//     //                 acc
-//     //             }
-//     //         ).as_bytes()
-//     // ).unwrap();
-// }
 
 #[derive(Debug, Clone)]
 pub enum EmulatorCommand {
@@ -164,9 +110,9 @@ impl EmulatorHandle {
         let (command_tx, command_rx) = channel();
 
         let state = Arc::new(Mutex::new(State::new()));
-        let cloned = state.clone();
+
+        let mut thread = EmulatorThread::new(command_rx, state.clone());
         std::thread::spawn(move || {
-            let mut thread = EmulatorThread::new(command_rx, cloned);
             thread.run();
         });
 
@@ -193,6 +139,13 @@ impl EmulatorThread {
         loop {
             {
                 let mut state = self.state.lock().unwrap();
+                if state.paused {
+                    if let Ok(c) = self.command_rx.recv() {
+                        self.process_command(&mut state, c);
+                    }
+                    continue;
+                }
+
                 while let Ok(c) = self.command_rx.try_recv() {
                     self.process_command(&mut state, c);
                 }

@@ -26,11 +26,6 @@ fn main() -> ExitCode {
     println!("SRAM size: {}KiB", rom.ram_size());
     println!("MBC type: {:?}", rom.cartridge_type());
 
-    //let mut emulator = Emulator::new(&rom);
-    //loop {
-    //    emulator.run_frame();
-    //}
-    
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Wait);
 
