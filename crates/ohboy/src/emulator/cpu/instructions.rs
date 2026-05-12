@@ -209,10 +209,13 @@ instructions!(
         Halt,
         CallFunction | { address: u16 },
         ReturnFunction,
+        ReturnFunctionConditional { operand: ConditionalOperand },
         PopStackToRegister { operand: Operand2 },
         PushRegisterToStack { operand: Operand2 },
         JumpImmediate | { address: u16 },
         JumpHL,
+        JumpRelative | { relative: i8 },
+        JumpConditional { operand: ConditionalOperand } | { address: u16 },
         JumpRelativeConditional { operand: ConditionalOperand } | { relative: i8 },
         XorRegister { operand: Operand3 },
         IncRegister8 { operand: Operand3 },
@@ -260,6 +263,11 @@ impl RawInstruction {
             0xF3 => Ok(Self::DisableInterrupts),
             0xCD => Ok(Self::CallFunction),
             0xC9 => Ok(Self::ReturnFunction),
+            byte_permutations!("0b110x_x000") => {
+                let idx = match_bits!(opcode, "0b110x_x000");
+                let operand = ConditionalOperand::new(idx).unwrap();
+                Ok(Self::ReturnFunctionConditional { operand })
+            },
             byte_permutations!("0b11xx_0001") => {
                 let idx = match_bits!(opcode, "0b11xx_0001");
                 let operand = Operand2::new(idx, LastOperand2::AF).unwrap();
@@ -272,8 +280,14 @@ impl RawInstruction {
             },
             0xC3 => Ok(Self::JumpImmediate),
             0xE9 => Ok(Self::JumpHL),
-            byte_permutations!("0b0010_xx00") => {
-                let idx = match_bits!(opcode, "0b0010_xx00");
+            0x18 => Ok(Self::JumpRelative),
+            byte_permutations!("0b110x_x010") => {
+                let idx = match_bits!(opcode, "0b110x_x010");
+                let operand = ConditionalOperand::new(idx).unwrap();
+                Ok(Self::JumpConditional { operand })
+            },
+            byte_permutations!("0b001x_x000") => {
+                let idx = match_bits!(opcode, "0b001x_x000");
                 let operand = ConditionalOperand::new(idx).unwrap();
                 Ok(Self::JumpRelativeConditional { operand })
             },
@@ -405,8 +419,11 @@ impl std::fmt::Display for Instruction {
             PopStackToRegister { operand } => write!(f, "pop {}", operand),
             PushRegisterToStack { operand } => write!(f, "push {}", operand),
             ReturnFunction => write!(f, "ret"),
+            ReturnFunctionConditional { operand } => write!(f, "ret {}", operand),
             JumpImmediate { address } => write!(f, "jp {:#x}", address),
             JumpHL => write!(f, "jp hl"),
+            JumpRelative { relative } => write!(f, "jr {:+}", relative),
+            JumpConditional { operand, address } => write!(f, "jp {}, {:#x}", operand, address),
             JumpRelativeConditional { operand, relative } => write!(f, "jr {}, {:+}", operand, relative),
             XorRegister { operand } => write!(f, "xor {}", operand),
             IncRegister8 { operand } => write!(f, "inc {}", operand),

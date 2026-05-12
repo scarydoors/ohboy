@@ -72,6 +72,7 @@ impl Ppu {
     }
 
     pub fn step(&mut self, memory: &mut Memory, steps: TimeCycle) -> bool {
+        let mut frame_ready = false;
         for _ in 0..steps.0 {
             let ly = &mut memory.lcd_y;
 
@@ -93,16 +94,16 @@ impl Ppu {
             }
 
             if ly.get() as usize == FRAMEBUFFER_HEIGHT {
-                return true
+                frame_ready = true;
                 // present frame bro
                 // fire mode 1 vblank interrupt
-            } else if ly.get() == 153 {
+            } else if ly.get() == 154 {
                 ly.set(0);
+                self.total_dots = 0;
             }
-
             self.total_dots += 1; 
         }
-        false
+        frame_ready
     }
 
     fn scanline_dots(&mut self) -> usize {

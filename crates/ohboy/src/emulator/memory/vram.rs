@@ -77,9 +77,7 @@ impl VRam {
 
         let pair_idx = actual_idx - (actual_idx % 2);
         let byte_pair = self.data.0.get(pair_idx..=(pair_idx+1)).unwrap();
-        println!("updated address: {address}, actual_idx: {actual_idx}, tile_idx: {tile_idx}, idx: {idx}, row_to_replace: {row_to_replace}, pair_idx: {pair_idx}, bp: {byte_pair:?}");
         tile.color_indexes[row_to_replace*8..(row_to_replace*8 + 8)].copy_from_slice(&byte_pair_to_idxs(byte_pair));
-        println!("replaced range: {:?}", row_to_replace..(row_to_replace+8));
         self.dirty_tiles = true;
     }
 }

@@ -91,6 +91,12 @@ impl Cpu {
                     self.registers.pc.set(address);
                     (MachineCycle(1), Instruction::JumpHL)
                 },
+                RawInstruction::JumpRelative => {
+                    let relative = self.consume_pc_i8(memory);
+                    self.registers.pc.update(|pc| pc.wrapping_add_signed(relative as i16));
+
+                    (MachineCycle(3), Instruction::JumpRelative { relative })
+                },
                 RawInstruction::EnableInterrupts => {
                     // TODO: actually enable interrupts
                     self.pending_interrupt_enable = true;
@@ -126,6 +132,28 @@ impl Cpu {
                     self.registers.pc.set(popped);
 
                     (MachineCycle(4), Instruction::ReturnFunction)
+                },
+                RawInstruction::ReturnFunctionConditional { operand } => {
+                    let machine_cycle = if self.check_condition(operand) {
+                        let popped = self.pop_stack(memory);
+                        self.registers.pc.set(popped);
+                        MachineCycle(5)
+                    } else {
+                        MachineCycle(2)
+                    };
+
+                    (machine_cycle, Instruction::ReturnFunctionConditional { operand })
+                },
+                RawInstruction::JumpConditional { operand } => {
+                    let address = self.consume_pc_u16(memory);
+                    let machine_cycle = if self.check_condition(operand) {
+                        self.registers.pc.set(address);
+                        MachineCycle(4)
+                    } else {
+                        MachineCycle(3)
+                    };
+
+                    (machine_cycle, Instruction::JumpConditional { operand, address })
                 },
                 RawInstruction::JumpRelativeConditional { operand } => {
                     let relative = self.consume_pc_i8(memory);
