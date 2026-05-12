@@ -43,9 +43,6 @@ impl Emulator {
     pub fn run_frame(&mut self) -> bool {
         self.cycles += 1;
         let pc = self.cpu.registers.pc.get();
-        if pc == 0x6556 {
-            return true;
-        }
 
         let machine_cycle = match self.cpu.cycle(&mut self.memory) {
             Ok((machine_cycle, instruction)) => {
@@ -53,7 +50,8 @@ impl Emulator {
                 machine_cycle
             },
             Err(e) => {
-                panic!("{}, should have tiles:\noam: {:?}, vram: {:?}, cycles: {}", e, self.memory.oam, self.memory.vram, self.cycles);
+                //panic!("{}, should have tiles:\noam: {:?}, vram: {:?}, cycles: {}", e, self.memory.oam, self.memory.vram, self.cycles);
+                panic!("{}", e);
             }
         };
 

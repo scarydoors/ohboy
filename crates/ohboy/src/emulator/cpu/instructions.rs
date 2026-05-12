@@ -236,6 +236,7 @@ instructions!(
         ComplementAccumulator,
         Restart { address: u8 },
         AddRegisterToHL { operand: Operand2 },
+        LoadMemoryToAccumulator | { address: u16 },
         CBPrefix,
     },
 );
@@ -382,6 +383,7 @@ impl RawInstruction {
                 let operand = Operand2::new(idx, LastOperand2::SP).unwrap();
                 Ok(Self::AddRegisterToHL { operand })
             }
+            0xFA => Ok(Self::LoadMemoryToAccumulator),
             0xCB => {
                 Ok(Self::CBPrefix)
             },
@@ -428,6 +430,7 @@ impl std::fmt::Display for Instruction {
             ComplementAccumulator => write!(f, "cpl"),
             AddRegisterToHL { operand } => write!(f, "add hl, {}", operand),
             Restart { address } => write!(f, "rst {:#x}", address),
+            LoadMemoryToAccumulator { address }=> write!(f, "ld a, {:#x}", address),
             _ => Err(std::fmt::Error)
         }
     }

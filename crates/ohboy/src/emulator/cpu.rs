@@ -435,6 +435,12 @@ impl Cpu {
                     (MachineCycle(4), Instruction::Restart { address })
                 }
                 RawInstruction::Halt => unimplemented!("halt"),
+                RawInstruction::LoadMemoryToAccumulator => {
+                    let address = self.consume_pc_u16(memory);
+                    self.registers.a.set(memory.read_memory(address));
+
+                    (MachineCycle(4), Instruction::LoadMemoryToAccumulator { address })
+                }
                 RawInstruction::CBPrefix => (MachineCycle(0), Instruction::CBPrefix),
             }
         )
