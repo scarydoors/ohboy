@@ -10,3 +10,7 @@ members = [
 [workspace.dependencies]
 
 ohboy_macro = { path = "crates/ohboy_macro" }
+
+[profile.samply]
+inherits = "release"
+debug = true

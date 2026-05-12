@@ -22,8 +22,8 @@ impl ReadMemory for VRam {
 impl WriteMemory for VRam {
     fn write_memory(&mut self, address: u16, value: u8) {
         self.data.write_memory(address, value);
-        if VRamData::address_to_idx(address) <= TILES_END {
-            self.compute_tiles();
+        if VRamData::address_to_idx(address) - TILES_START < TILES_END {
+            self.sync_tile(address);
         }
     }
 }
@@ -40,25 +40,19 @@ impl VRam {
             tiles
         };
 
-        this.compute_tiles();
+        this.init_tiles();
         this
     }
 
-    fn compute_tiles(&mut self) {
-        let bytes = self.data.0.get(0..(10*128*3)).unwrap();
+    fn init_tiles(&mut self) {
+        self.tiles.clear();
+        let bytes = self.data.0.get(0..TILES_END).unwrap();
 
         let is_initializing = self.tiles.is_empty();
-        for (i, tile_bytes) in bytes.chunks(16).enumerate() {
-            let colors = tile_bytes.chunks(2).into_iter().fold(Vec::new(), |mut colors, bytes| {
-                let lsb = bytes[0];
-                let msb = bytes[1];
-
-                for i in (0..8).rev() {
-                    let lsb_bit = (lsb >> i) & 1;
-                    let msb_bit = (msb >> i) & 1;
-
-                    colors.push(msb_bit << 1 | lsb_bit);
-                }
+        for tile_bytes in bytes.chunks(16) {
+            let colors = tile_bytes.chunks(2).into_iter().fold(Vec::with_capacity(64), |mut colors, pair| {
+                let idxs = byte_pair_to_idxs(pair);
+                colors.extend_from_slice(&idxs);
 
                 colors
             });
@@ -66,12 +60,44 @@ impl VRam {
             let tile = Tile::new(colors);
             if is_initializing {
                 self.tiles.push(tile);
-            } else {
-                self.tiles[i] = tile;
             }
         }
         self.dirty_tiles = true;
     }
+
+    fn sync_tile(&mut self, address: u16) {
+        let actual_idx = VRamData::address_to_idx(address) - TILES_START; // idx of modified data inside the vram data struct
+        let tile_idx = (actual_idx) / 16; // idx of the tile
+        let idx = (actual_idx) % 16; // idx of the affected
+        
+
+        let tile = self.tiles.get_mut(tile_idx).unwrap();
+
+        let row_to_replace = idx / 2;
+
+        let pair_idx = actual_idx - (actual_idx % 2);
+        let byte_pair = self.data.0.get(pair_idx..=(pair_idx+1)).unwrap();
+        println!("updated address: {address}, actual_idx: {actual_idx}, tile_idx: {tile_idx}, idx: {idx}, row_to_replace: {row_to_replace}, pair_idx: {pair_idx}, bp: {byte_pair:?}");
+        tile.color_indexes[row_to_replace*8..(row_to_replace*8 + 8)].copy_from_slice(&byte_pair_to_idxs(byte_pair));
+        println!("replaced range: {:?}", row_to_replace..(row_to_replace+8));
+        self.dirty_tiles = true;
+    }
+}
+
+fn byte_pair_to_idxs(pair: &[u8]) -> [u8; 8] {
+    let lsb = pair[0];
+    let msb = pair[1];
+
+    let mut colors = [0; 8];
+    for i in 0..8 {
+        let shift = 7 - i;
+        let lsb_bit = (lsb >> shift) & 1;
+        let msb_bit = (msb >> shift) & 1;
+
+        colors[i] = msb_bit << 1 | lsb_bit;
+    }
+
+    colors
 }
 
 #[derive(Clone, Debug)]

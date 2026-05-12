@@ -62,6 +62,7 @@
               cargo-watch
               rust-analyzer
               self.formatter.${system}
+              samply
             ];
 
             env = {

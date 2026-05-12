@@ -39,6 +39,10 @@ impl Emulator {
     pub fn run_frame(&mut self) -> bool {
         self.cycles += 1;
         let pc = self.cpu.registers.pc.get();
+        if pc == 0x6556 {
+            return true;
+        }
+
         let machine_cycle = match self.cpu.cycle(&mut self.memory) {
             Ok((machine_cycle, instruction)) => {
                 println!("{:#x}: {}", pc, instruction);
