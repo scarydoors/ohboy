@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use egui_winit::EventResponse;
 use wgpu::CommandEncoder;
 use winit::{application::ApplicationHandler, event::{KeyEvent, WindowEvent}, event_loop::ActiveEventLoop, keyboard::{KeyCode, PhysicalKey}, window::{Window, WindowId}};
 

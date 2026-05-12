@@ -14,10 +14,12 @@ pub trait WriteMemory {
 
 pub trait ReadWriteMemory: ReadMemory + WriteMemory {}
 
-impl<T: ReadMemory + WriteMemory> ReadWriteMemory for T {}
+unsafe impl<T: Send + 'static> Send for Box<T> {}
+
+impl<T: ReadMemory + WriteMemory + Send + Sync + ?Sized> ReadWriteMemory for T {}
 
 #[derive(Debug, Clone)]
-pub struct MemoryRegion<const N: usize, const START: u16, const END: u16>(pub [u8; N]);
+pub struct MemoryRegion<const N: usize, const START: u16, const END: u16>(pub Vec<u8>);
 
 impl<const N: usize, const START: u16, const END: u16> MemoryRegion<N, START, END> {
     const SIZE: usize = {
@@ -48,7 +50,7 @@ impl<const N: usize, const START: u16, const END: u16> WriteMemory for MemoryReg
 
 impl<const N: usize, const START: u16, const END: u16> Default for MemoryRegion<N, START, END> {
     fn default() -> Self {
-        Self([0; N])
+        Self(vec![0; Self::SIZE])
     }
 }
 

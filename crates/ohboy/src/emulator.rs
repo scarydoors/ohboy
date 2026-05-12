@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::Write;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender, SyncSender, channel, sync_channel};
 use std::time::Duration;
 
@@ -150,72 +151,80 @@ pub enum ActiveCommand {
     ButtonDown,
 }
 
+pub struct State {
+    pub paused: bool,
+    pub emulator: Option<Emulator>
+}
+
+impl State {
+    fn new() -> Self {
+        Self {
+            paused: false,
+            emulator: None
+        }
+    }
+}
+
 pub struct EmulatorHandle {
     command_tx: Sender<EmulatorCommand>,
-    snapshot_rx: Receiver<Snapshot>
+    state: Arc<Mutex<State>>
 }
 
 pub struct EmulatorThread {
     paused: bool,
-    emulator: Option<Emulator>,
     command_rx: Receiver<EmulatorCommand>,
-    snapshot_tx: SyncSender<Snapshot>
+    state: Arc<Mutex<State>>
 }
 
 impl EmulatorHandle {
     pub fn spawn() -> Self {
         let (command_tx, command_rx) = channel();
-        let (snapshot_tx, snapshot_rx) = sync_channel(1);
 
+        let state = Arc::new(Mutex::new(State::new()));
+        let cloned = state.clone();
         std::thread::spawn(move || {
-            let mut thread = EmulatorThread::new(command_rx, snapshot_tx);
+            let mut thread = EmulatorThread::new(command_rx, cloned);
             thread.run();
         });
 
         Self {
+            state,
             command_tx,
-            snapshot_rx
         }
     }
 
     pub fn send_command(&self, command: EmulatorCommand) {
         let _todo = self.command_tx.send(command);
     }
-
-    pub fn try_recv_snapshot(&self) -> Option<Snapshot> {
-        self.snapshot_rx.try_recv().ok()
-    }
 }
 
 impl EmulatorThread {
-    fn new(command_rx: Receiver<EmulatorCommand>, snapshot_tx: SyncSender<Snapshot>) -> Self {
+    fn new(command_rx: Receiver<EmulatorCommand>, state: Arc<Mutex<State>>) -> Self {
         Self {
+            state,
             paused: true,
-            emulator: None,
             command_rx,
-            snapshot_tx,
         }
     }
 
     fn run(&mut self) {
         loop {
+            let mut emulator = self.emulator.lock().unwrap();
             let command = self.command_rx.try_recv().ok();
             if let Some(c) = command {
-                self.process_command(c);
+                self.process_command(&mut emulator, c);
             }
 
-            if let Some(e) = self.emulator.as_mut() {
-                // add timing for when an actual frame is ready
-                if !self.paused {
-                    e.run_frame();
-                }
+            if !self.paused {
 
-                let _ = self.snapshot_tx.try_send(Snapshot::new(e));
+                if let Some(e) = emulator.as_mut() {
+                    // add timing for when an actual frame is ready
+                }
             }
         }
     }
 
-    fn process_command(&mut self, command: EmulatorCommand) {
+    fn process_command(&self, emulator: &mut Option<Emulator>, command: EmulatorCommand) {
         use EmulatorCommand::*;
 
         match command {
