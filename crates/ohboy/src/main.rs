@@ -29,7 +29,6 @@ fn main() -> ExitCode {
     let event_loop = EventLoop::with_user_event().build().unwrap();
     event_loop.set_control_flow(ControlFlow::Wait);
 
-    // TODO: event loop proxy so we can avoid using about_to_wait and properly wake up the event loop
     let emulator_handle = EmulatorHandle::spawn(event_loop.create_proxy());
     let mut app = App::new(emulator_handle);
 
