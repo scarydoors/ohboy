@@ -1,5 +1,7 @@
 use bitflags::bitflags;
 
+pub const VBLANK_ADDRESS: u16 = 0x0040;
+
 bitflags! {
     #[derive(Default, Copy, Clone)]
     pub struct RequestFlags: u8 {

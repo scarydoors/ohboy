@@ -1,6 +1,6 @@
 use bitflags::{Flags, bitflags};
 
-use crate::emulator::{TimeCycle, memory::Memory};
+use crate::emulator::{TimeCycle, cpu::interrupt, memory::Memory};
 
 bitflags! {
     #[derive(Default, Copy, Clone)]
@@ -95,6 +95,9 @@ impl Ppu {
 
             if ly.get() as usize == FRAMEBUFFER_HEIGHT {
                 frame_ready = true;
+                memory.requested_interrupts.update(|ri| {
+                    ri & interrupt::RequestFlags::VBLANK
+                });
                 // present frame bro
                 // fire mode 1 vblank interrupt
             } else if ly.get() == 154 {

@@ -493,6 +493,7 @@ impl std::fmt::Display for CBInstruction {
 pub enum AnyInstruction {
     Instruction(Instruction),
     CBInstruction(CBInstruction),
+    HandleInterrupt
 }
 
 impl From<CBInstruction> for AnyInstruction {
@@ -512,6 +513,7 @@ impl std::fmt::Display for AnyInstruction {
         match self {
             AnyInstruction::Instruction(i) => write!(f, "{}", i),
             AnyInstruction::CBInstruction(cb) => write!(f, "{}", cb),
+            AnyInstruction::HandleInterrupt => write!(f, "handling interrupt"),
         }
     }
 }

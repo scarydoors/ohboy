@@ -45,7 +45,7 @@ pub enum CpuError {
 pub struct Cpu {
     pub registers: registers::Registers,
 
-    interrupt_master_enable: bool,
+    pub interrupt_master_enable: bool,
     pending_interrupt_enable: bool,
 }
 
@@ -61,6 +61,15 @@ impl Cpu {
     pub fn cycle(&mut self, memory: &mut Memory) -> Result<(MachineCycle, AnyInstruction), CpuError> {
         let opcode = self.consume_pc_u8(memory);
         let (machine_cycle, instruction) = self.execute(memory, opcode)?;
+
+        if let Some(result) = self.handle_interrupts(memory) {
+            return Ok(result)
+        }
+
+        if self.pending_interrupt_enable {
+            self.interrupt_master_enable = true;
+        }
+
         Ok(match instruction {
             Instruction::CBPrefix => {
                 let opcode = self.consume_pc_u8(memory);
@@ -110,9 +119,7 @@ impl Cpu {
                 RawInstruction::CallFunction => {
                     let address = self.consume_pc_u16(memory);
 
-                    self.push_stack(memory, self.registers.pc.get());
-                    self.registers.pc.set(address);
-
+                    self.do_call_function(memory, address);
                     (MachineCycle(6), Instruction::CallFunction { address })
                 },
                 RawInstruction::PopStackToRegister { operand } => {
@@ -591,6 +598,29 @@ impl Cpu {
 
         u16_le(lsb, msb)
     }
+
+    fn handle_interrupts(&mut self, memory: &mut Memory) -> Option<(MachineCycle, AnyInstruction)> {
+        if !self.interrupt_master_enable {
+            return None
+        }
+
+        let ri = &mut memory.requested_interrupts;
+        if ri.get().contains(interrupt::RequestFlags::VBLANK) {
+            ri.update(|mut ri| {
+                ri.remove(interrupt::RequestFlags::VBLANK);
+                ri
+            });
+            self.do_call_function(memory, interrupt::VBLANK_ADDRESS);
+            Some((MachineCycle(5), AnyInstruction::HandleInterrupt))
+        } else {
+            None
+        }
+    }
+
+    fn do_call_function(&mut self, memory: &mut Memory, address: u16) {
+        self.push_stack(memory, self.registers.pc.get());
+        self.registers.pc.set(address);
+    } 
 }
 
 fn u16_le(lsb: u8, msb: u8) -> u16 {
