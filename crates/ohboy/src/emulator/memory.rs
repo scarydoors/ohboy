@@ -73,6 +73,7 @@ const LCD_STATUS_ADDRESS: u16 = 0xFF41;
 const LCD_Y_ADDRESS: u16 = 0xFF44;
 const SCREEN_Y_ADDRESS: u16 = 0xFF42;
 const SCREEN_X_ADDRESS: u16 = 0xFF43;
+const DMA_ADDRESS: u16 = 0xFF46;
 const BG_PALETTE_ADDRESS: u16 = 0xFF47;
 const OBJ_PALETTE_0_ADDRESS: u16 = 0xFF48;
 const OBJ_PALETTE_1_ADDRESS: u16 = 0xFF49;
@@ -109,6 +110,7 @@ pub struct Memory {
     pub lcd_y: Register<u8>,
     pub screen_y: Register<u8>,
     pub screen_x: Register<u8>,
+    pub dma: Register<u8>,
     pub bg_palette: Register<u8>,
     pub obj_palette0: Register<u8>,
     pub obj_palette1: Register<u8>,
@@ -142,6 +144,7 @@ impl Memory {
             lcd_y: Default::default(),
             screen_y: Default::default(),
             screen_x: Default::default(),
+            dma: 0xFF.into(),
             bg_palette: 0xFC.into(),
             obj_palette0: Default::default(),
             obj_palette1: Default::default(),
@@ -176,6 +179,7 @@ impl ReadMemory for Memory {
             LCD_Y_ADDRESS => self.lcd_y.get(),
             SCREEN_Y_ADDRESS => self.screen_y.get(),
             SCREEN_X_ADDRESS => self.screen_x.get(),
+            DMA_ADDRESS => self.dma.get(),
             BG_PALETTE_ADDRESS => self.bg_palette.get(),
             OBJ_PALETTE_0_ADDRESS=> self.obj_palette0.get(),
             OBJ_PALETTE_1_ADDRESS => self.obj_palette1.get(),
@@ -209,6 +213,7 @@ impl WriteMemory for Memory {
             LCD_STATUS_ADDRESS => self.lcd_status.set_retain(value),
             SCREEN_Y_ADDRESS => self.screen_y.set(value),
             SCREEN_X_ADDRESS => self.screen_x.set(value),
+            DMA_ADDRESS => self.dma.set(value),
             BG_PALETTE_ADDRESS => self.bg_palette.set(value),
             OBJ_PALETTE_0_ADDRESS=> self.obj_palette0.set(value),
             OBJ_PALETTE_1_ADDRESS => self.obj_palette1.set(value),

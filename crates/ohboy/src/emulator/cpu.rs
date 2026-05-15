@@ -1,5 +1,5 @@
 use crate::emulator::{
-    cpu::{
+    MachineCycle, cpu::{
         instructions::{
             AnyInstruction,
             BitIndexOperand,
@@ -12,19 +12,15 @@ use crate::emulator::{
             RawInstruction
         },
         registers::{
-            Registers,
-            CpuFlags
+            CpuFlags, Registers, ShortRegisterName
         }
-    },
-    register::{
-        WordRegisterRead,
-        WordRegisterWrite
-    },
-    MachineCycle,
-    memory::{
+    }, memory::{
         Memory,
         ReadMemory,
         WriteMemory
+    }, register::{
+        WordRegisterRead,
+        WordRegisterWrite
     }
 };
 
@@ -46,6 +42,8 @@ pub struct Cpu {
     pub registers: registers::Registers,
 
     pub interrupt_master_enable: bool,
+    // This exists because the effects of the EI instruction are delayed until
+    // the next instruction executes
     pending_interrupt_enable: bool,
 }
 
@@ -60,14 +58,24 @@ impl Cpu {
 
     pub fn cycle(&mut self, memory: &mut Memory) -> Result<(MachineCycle, AnyInstruction), CpuError> {
         let opcode = self.consume_pc_u8(memory);
+
+        // Snapshot the pending state before we execute the fetched instruction.
+        let was_pending = self.pending_interrupt_enable;
+
         let (machine_cycle, instruction) = self.execute(memory, opcode)?;
+
+        // By checking if both was_pending and pending_interrupt_enable are true (was pending +
+        // still pending), we effectively track whether the pending_interrupt_enable set by the
+        // previous EI instruction wasn't altered by the instruction that ran after EI, (e.g. DI)
+        if was_pending && self.pending_interrupt_enable {
+            self.interrupt_master_enable = true;
+            self.pending_interrupt_enable = false;
+            println!("NO LONGER PENDING -> INTERRUPTS ENABLED");
+        }
+
 
         if let Some(result) = self.handle_interrupts(memory) {
             return Ok(result)
-        }
-
-        if self.pending_interrupt_enable {
-            self.interrupt_master_enable = true;
         }
 
         Ok(match instruction {
@@ -108,6 +116,7 @@ impl Cpu {
                 },
                 RawInstruction::EnableInterrupts => {
                     // TODO: actually enable interrupts
+                    println!("ENABLE INTERRUPTS, PENDING");
                     self.pending_interrupt_enable = true;
                     (MachineCycle(1), Instruction::EnableInterrupts)
                 },
@@ -181,9 +190,11 @@ impl Cpu {
 
                     let result = self.registers.a.update(|a| a ^ value);
 
-                    if result == 0 {
-                        self.registers.f.set(CpuFlags::ZERO);
-                    }
+                    self.registers.f.update(|_| {
+                        let mut f = CpuFlags::empty();
+                        f.set(CpuFlags::ZERO, result == 0);
+                        f
+                    });
 
                     let machine_cycle = match operand {
                         Operand3::Register(_) => MachineCycle(2),
@@ -248,6 +259,7 @@ impl Cpu {
                             result
                         },
                     };
+                    println!("dec {}: {}", operand, result);
                     
                     self.registers.f.update(|mut f| {
                         f.insert(CpuFlags::SUB);
@@ -256,7 +268,12 @@ impl Cpu {
                         f
                     });
 
-                    (MachineCycle(1), Instruction::DecRegister8 { operand })
+                    let machine_cycle = match operand {
+                        Operand3::Register(_) => MachineCycle(1),
+                        Operand3::IndirectHL => MachineCycle(3),
+                    };
+
+                    (machine_cycle, Instruction::DecRegister8 { operand })
                 },
                 RawInstruction::DecRegister16 { operand } => {
                     let mut register = self.registers.get_word_register_mut(operand.register);
@@ -421,7 +438,12 @@ impl Cpu {
                         z
                     });
 
-                    (MachineCycle(1), Instruction::BitwiseOrRegister { operand })
+                    let machine_cycle = match operand {
+                        Operand3::Register(_) => MachineCycle(1),
+                        Operand3::IndirectHL => MachineCycle(2),
+                    };
+
+                    (machine_cycle, Instruction::BitwiseOrRegister { operand })
                 },
                 RawInstruction::BitwiseAndRegister { operand } => {
                     let value = match operand {
@@ -603,6 +625,8 @@ impl Cpu {
         if !self.interrupt_master_enable {
             return None
         }
+
+        self.interrupt_master_enable = false;
 
         let ri = &mut memory.requested_interrupts;
         if ri.get().contains(interrupt::RequestFlags::VBLANK) {

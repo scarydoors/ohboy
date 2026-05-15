@@ -72,6 +72,10 @@ impl Ppu {
     }
 
     pub fn step(&mut self, memory: &mut Memory, steps: TimeCycle) -> bool {
+        if !memory.lcd_control.get().contains(LcdControlFlags::LcdAndPpuEnable) {
+            return false;
+        }
+
         let mut frame_ready = false;
         for _ in 0..steps.0 {
             let ly = &mut memory.lcd_y;
@@ -81,20 +85,21 @@ impl Ppu {
                     // fire mode 2 stat interrupt
                     // collect sprites
                 },
-                80 => {
+                79 => {
                     // fire mode 3 stat interrupt 
                 },
-                252 => {
+                251 => {
                     // mode 0
                 },
-                456 => {
+                455 => {
                     ly.update(|ly| ly + 1);
                 }
                 _ => {}
             }
 
-            if ly.get() as usize == FRAMEBUFFER_HEIGHT {
+            if self.scanline_dots() == 0 && ly.get() as usize == FRAMEBUFFER_HEIGHT {
                 frame_ready = true;
+                println!("REQUESTING VBLANK");
                 memory.requested_interrupts.update(|ri| {
                     ri & interrupt::RequestFlags::VBLANK
                 });
@@ -110,7 +115,7 @@ impl Ppu {
     }
 
     fn scanline_dots(&mut self) -> usize {
-        self.total_dots % SCANLINE_LENGTH + 1
+        self.total_dots % SCANLINE_LENGTH
     }
 }
 
