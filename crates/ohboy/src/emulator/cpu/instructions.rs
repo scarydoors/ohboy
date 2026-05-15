@@ -209,6 +209,7 @@ instructions!(
         Halt,
         CallFunction | { address: u16 },
         ReturnFunction,
+        ReturnInterruptHandler,
         ReturnFunctionConditional { operand: ConditionalOperand },
         PopStackToRegister { operand: Operand2 },
         PushRegisterToStack { operand: Operand2 },
@@ -263,6 +264,7 @@ impl RawInstruction {
             0xF3 => Ok(Self::DisableInterrupts),
             0xCD => Ok(Self::CallFunction),
             0xC9 => Ok(Self::ReturnFunction),
+            0xD9 => Ok(Self::ReturnInterruptHandler),
             byte_permutations!("0b110x_x000") => {
                 let idx = match_bits!(opcode, "0b110x_x000");
                 let operand = ConditionalOperand::new(idx).unwrap();
@@ -419,6 +421,7 @@ impl std::fmt::Display for Instruction {
             PopStackToRegister { operand } => write!(f, "pop {}", operand),
             PushRegisterToStack { operand } => write!(f, "push {}", operand),
             ReturnFunction => write!(f, "ret"),
+            ReturnInterruptHandler => write!(f, "reti"),
             ReturnFunctionConditional { operand } => write!(f, "ret {}", operand),
             JumpImmediate { address } => write!(f, "jp {:#x}", address),
             JumpHL => write!(f, "jp hl"),

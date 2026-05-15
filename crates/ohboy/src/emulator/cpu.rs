@@ -149,6 +149,14 @@ impl Cpu {
 
                     (MachineCycle(4), Instruction::ReturnFunction)
                 },
+                RawInstruction::ReturnInterruptHandler => {
+                    let popped = self.pop_stack(memory);
+                    self.registers.pc.set(popped);
+
+                    self.interrupt_master_enable = true;
+
+                    (MachineCycle(4), Instruction::ReturnInterruptHandler)
+                },
                 RawInstruction::ReturnFunctionConditional { operand } => {
                     let machine_cycle = if self.check_condition(operand) {
                         let popped = self.pop_stack(memory);
@@ -259,7 +267,6 @@ impl Cpu {
                             result
                         },
                     };
-                    println!("dec {}: {}", operand, result);
                     
                     self.registers.f.update(|mut f| {
                         f.insert(CpuFlags::SUB);
