@@ -62,6 +62,7 @@ impl Cpu {
         // Snapshot the pending state before we execute the fetched instruction.
         let was_pending = self.pending_interrupt_enable;
 
+        println!("VBLANKDONE: {}", memory.read_memory(0xFF85));
         let (machine_cycle, instruction) = self.execute(memory, opcode)?;
 
         // By checking if both was_pending and pending_interrupt_enable are true (was pending +

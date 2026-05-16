@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 
-use crate::emulator::{cpu::interrupt, joypad::JoypadFlags, mbc::{MBC_EXTERNAL_RAM_END, MBC_EXTERNAL_RAM_START, MBC_ROM_END, MBC_ROM_START, Mbc}, memory::vram::{VRam, VRamData}, ppu::{LcdControlFlags, LcdStatusFlags}, register::Register};
+use crate::emulator::{cpu::interrupt, joypad::{Joypad, JoypadFlags}, mbc::{MBC_EXTERNAL_RAM_END, MBC_EXTERNAL_RAM_START, MBC_ROM_END, MBC_ROM_START, Mbc}, memory::vram::{VRam, VRamData}, ppu::{LcdControlFlags, LcdStatusFlags}, register::Register};
 
 pub mod vram;
 
@@ -93,7 +93,7 @@ pub struct Memory {
     pub oam: Oam,
 
     // TODO: flags for joypad!
-    pub joypad: Register<JoypadFlags>,
+    pub joypad: Joypad,
     // IO registers
     pub requested_interrupts: Register<interrupt::RequestFlags>,
 
@@ -129,7 +129,7 @@ impl Memory {
             wram: Default::default(),
             oam: Default::default(),
 
-            joypad: Register::from_bits_retain(0xCF),
+            joypad: Joypad::new(), 
 
             requested_interrupts: Register::from_bits_retain(0xE1),
 
@@ -165,7 +165,7 @@ impl ReadMemory for Memory {
             VRamData::START..=VRamData::END => self.vram.read_memory(address),
             WRam::START..=WRam::END => self.wram.read_memory(address),
             Oam::START..=Oam::END => self.oam.read_memory(address),
-            JOYPAD_ADDRESS => self.joypad.get().bits(),
+            JOYPAD_ADDRESS => self.joypad.get_memory(),
             UNUSABLE_START_ADDRESS..=UNUSABLE_END_ADDRESS => 0,
             0xFF7F => 0,
             REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.get().bits(),
@@ -200,7 +200,7 @@ impl WriteMemory for Memory {
             VRamData::START..=VRamData::END => self.vram.write_memory(address, value),
             WRam::START..=WRam::END => self.wram.write_memory(address, value),
             Oam::START..=Oam::END => self.oam.write_memory(address, value),
-            JOYPAD_ADDRESS => self.joypad.set_retain(value),
+            JOYPAD_ADDRESS => self.joypad.set_memory(value),
             UNUSABLE_START_ADDRESS..=UNUSABLE_END_ADDRESS => {},
             0xFF7F => {},
             REQUESTED_INTERRUPTS_ADDRESS => self.requested_interrupts.set_retain(value),
