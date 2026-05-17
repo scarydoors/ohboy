@@ -1,4 +1,4 @@
-use bitflags::{Flags, bitflags};
+use bitflags::bitflags;
 
 bitflags! {
     #[derive(Copy, Clone, Debug)]
@@ -13,34 +13,36 @@ bitflags! {
     }
 }
 
+#[derive(Copy, Clone, Default, Debug)]
+pub struct ButtonState {
+    pub start: bool,
+    pub select: bool,
+    pub b: bool,
+    pub a: bool,
+}
+
+#[derive(Copy, Clone, Default, Debug)]
+pub struct DpadState {
+    pub down: bool,
+    pub up: bool,
+    pub left: bool,
+    pub right: bool,
+}
+
+#[derive(Debug)]
 pub struct Joypad {
     flags: JoypadFlags,
 
-    start_pressed: bool,
-    select_pressed: bool,
-    b_pressed: bool,
-    a_pressed: bool,
-    
-    down_pressed: bool,
-    up_pressed: bool,
-    left_pressed: bool,
-    right_pressed: bool,
+    buttons: ButtonState,
+    dpad: DpadState,
 }
 
 impl Joypad {
     pub fn new() -> Self {
         Self {
             flags: JoypadFlags::from_bits_retain(0xCF),
-
-            start_pressed: false,
-            select_pressed: false,
-            b_pressed: false,
-            a_pressed: false,
-
-            down_pressed: false,
-            up_pressed: false,
-            left_pressed: false,
-            right_pressed: false,
+            buttons: ButtonState::default(),
+            dpad: DpadState::default(),
         }
     }
 
@@ -55,19 +57,19 @@ impl Joypad {
     }
 
     pub fn update_flags(&mut self) {
-        if self.flags.contains(JoypadFlags::SELECT_DPAD) {
-            self.flags.set(JoypadFlags::BUTTONS_START_DPAD_DOWN, !self.down_pressed);
-            self.flags.set(JoypadFlags::BUTTONS_SELECT_DPAD_UP, !self.up_pressed);
-            self.flags.set(JoypadFlags::BUTTONS_B_DPAD_LEFT, !self.left_pressed);
-            self.flags.set(JoypadFlags::BUTTONS_A_DPAD_RIGHT, !self.right_pressed);
+        // On Game Boy, 0 = pressed, so we negate.
+        let (b3, b2, b1, b0) = if self.flags.contains(JoypadFlags::SELECT_DPAD) {
+            (!self.dpad.down, !self.dpad.up, !self.dpad.left, !self.dpad.right)
         } else if self.flags.contains(JoypadFlags::SELECT_BUTTONS) {
-            self.flags.set(JoypadFlags::BUTTONS_START_DPAD_DOWN, !self.down_pressed);
-            self.flags.set(JoypadFlags::BUTTONS_SELECT_DPAD_UP, !self.up_pressed);
-            self.flags.set(JoypadFlags::BUTTONS_B_DPAD_LEFT, !self.left_pressed);
-            self.flags.set(JoypadFlags::BUTTONS_A_DPAD_RIGHT, !self.right_pressed);
+            (!self.buttons.start, !self.buttons.select, !self.buttons.b, !self.buttons.a)
         } else {
-            self.flags &= !(JoypadFlags::BUTTONS_START_DPAD_DOWN | JoypadFlags::BUTTONS_SELECT_DPAD_UP | JoypadFlags::BUTTONS_B_DPAD_LEFT | JoypadFlags::BUTTONS_A_DPAD_RIGHT);
+            (false, false, false, false)
+        };
 
-        }
+
+        self.flags.set(JoypadFlags::BUTTONS_START_DPAD_DOWN, b3);
+        self.flags.set(JoypadFlags::BUTTONS_SELECT_DPAD_UP, b2);
+        self.flags.set(JoypadFlags::BUTTONS_B_DPAD_LEFT, b1);
+        self.flags.set(JoypadFlags::BUTTONS_A_DPAD_RIGHT, b0);
     }
 }
