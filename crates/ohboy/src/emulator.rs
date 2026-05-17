@@ -7,18 +7,17 @@ use std::time::Duration;
 use winit::event_loop::EventLoopProxy;
 
 use crate::app::AppEvent;
-use crate::emulator::cpu::registers::Registers;
+use crate::emulator::dma::Dma;
 use crate::emulator::memory::Memory;
 use crate::emulator::cpu::Cpu;
-use crate::emulator::memory::vram::VRam;
 use crate::emulator::ppu::Ppu;
 
 pub mod cpu;
+mod dma;
 mod rom;
 mod memory;
 mod mbc;
 mod ppu;
-mod joypad;
 mod register;
 
 pub use crate::emulator::rom::Rom;
@@ -27,6 +26,7 @@ pub struct Emulator {
     pub cpu: Cpu,
     pub ppu: Ppu,
     pub memory: Memory,
+    pub dma: Dma,
     cycles: usize
 }
 
@@ -36,6 +36,7 @@ impl Emulator {
             cpu: Cpu::new(),
             ppu: Ppu::new(),
             memory: Memory::new(mbc::create_mbc(rom)),
+            dma: Dma::new(),
             cycles: 0
         }
     }

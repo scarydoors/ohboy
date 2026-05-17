@@ -1,8 +1,9 @@
 use bitflags::bitflags;
 
-use crate::emulator::{cpu::interrupt, joypad::{Joypad, JoypadFlags}, mbc::{MBC_EXTERNAL_RAM_END, MBC_EXTERNAL_RAM_START, MBC_ROM_END, MBC_ROM_START, Mbc}, memory::vram::{VRam, VRamData}, ppu::{LcdControlFlags, LcdStatusFlags}, register::Register};
+use crate::emulator::{cpu::interrupt, memory::joypad::Joypad, mbc::{MBC_EXTERNAL_RAM_END, MBC_EXTERNAL_RAM_START, MBC_ROM_END, MBC_ROM_START, Mbc}, memory::vram::{VRam, VRamData}, ppu::{LcdControlFlags, LcdStatusFlags}, register::Register};
 
 pub mod vram;
+pub mod joypad;
 
 pub trait ReadMemory {
     fn read_memory(&self, address: u16) -> u8;
